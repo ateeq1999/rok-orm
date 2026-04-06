@@ -741,6 +741,69 @@ fn pluck_sql_with_limit() {
     assert!(sql.contains("LIMIT 5"));
 }
 
+// ── error handling ─────────────────────────────────────────────────────────────
+
+#[test]
+fn orm_error_not_found() {
+    use rok_orm::errors::OrmError;
+
+    let err = OrmError::not_found("User", "id", "42");
+    assert!(err.is_not_found());
+    assert!(!err.is_validation());
+    assert!(!err.is_constraint());
+    assert_eq!(err.to_string(), "Record not found: User::id=42");
+}
+
+#[test]
+fn orm_error_validation() {
+    use rok_orm::errors::OrmError;
+
+    let err = OrmError::validation("Name cannot be empty");
+    assert!(err.is_validation());
+    assert_eq!(err.to_string(), "Validation failed: Name cannot be empty");
+}
+
+#[test]
+fn orm_error_constraint() {
+    use rok_orm::errors::OrmError;
+
+    let err = OrmError::constraint("unique_email");
+    assert!(err.is_constraint());
+}
+
+// ── logging ───────────────────────────────────────────────────────────────────
+
+#[test]
+fn log_level_ordering() {
+    use rok_orm::logging::LogLevel;
+
+    assert!(LogLevel::Debug.should_log(LogLevel::Debug));
+    assert!(LogLevel::Debug.should_log(LogLevel::Warn));
+    assert!(!LogLevel::Warn.should_log(LogLevel::Debug));
+}
+
+#[test]
+fn query_timer() {
+    use rok_orm::logging::QueryTimer;
+    use std::time::Duration;
+
+    let timer = QueryTimer::new();
+    std::thread::sleep(Duration::from_millis(10));
+
+    assert!(timer.elapsed_ms() >= 10);
+    assert!(timer.elapsed() >= Duration::from_millis(10));
+}
+
+#[test]
+fn logger_slow_query_detection() {
+    use rok_orm::logging::Logger;
+
+    let logger = Logger::new().with_slow_query_threshold(100);
+
+    assert!(!logger.is_slow_query(50));
+    assert!(logger.is_slow_query(150));
+}
+
 #[test]
 fn delete_in_sql_empty_values() {
     let builder = QueryBuilder::<()>::new("users");

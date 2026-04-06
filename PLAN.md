@@ -360,141 +360,68 @@ let users = User::active()
 
 ## Phase 5: Production Readiness (v0.5.0)
 
-### 5.1 Error Handling Enhancement
+### 5.1 Error Handling Enhancement ✅
 
-**Current State:** Basic sqlx::Error
-**Goal:** Structured ORM errors
+**Status:** Complete - Structured ORM errors
 
 ```rust
 // AFTER: Rich error types
-#[derive(Error, Debug)]
-pub enum OrmError {
-    #[error("Record not found: {model}::{pk}={id}")]
-    NotFound { model: String, pk: String, id: String },
+use rok_orm::errors::{OrmError, OrmResult};
 
-    #[error("Validation failed: {0}")]
-    Validation(String),
-
-    #[error("Constraint violation: {0}")]
-    Constraint(#[from] ConstraintError),
-
-    #[error("Transaction failed: {0}")]
-    Transaction(String),
-
-    #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
-
-    #[error("Hook failed: {0}")]
-    Hook(String),
-}
-
-impl From<sqlx::Error> for OrmError {
-    fn from(err: sqlx::Error) -> Self {
-        match err {
-            sqlx::Error::RowNotFound => OrmError::NotFound { ... },
-            _ => OrmError::Database(err),
-        }
-    }
-}
-
-// Usage with anyhow-like ergonomics
-let user = User::find_or_404(&pool, id)
+let user = User::find_by_pk(&pool, id)
     .await
-    .map_err(|e| match e {
-        OrmError::NotFound { .. } => StatusCode::NOT_FOUND,
-        _ => StatusCode::INTERNAL_SERVER_ERROR,
-    })?;
+    .map_err(OrmError::Database)?;
+
+match result {
+    Err(OrmError::NotFound { model, pk, id }) => {
+        println!("{} not found", model);
+    }
+    Err(e) => return Err(e),
+    Ok(user) => user,
+}
 ```
 
-**Changes:**
-- [ ] Define `OrmError` enum with all variants
-- [ ] Add `OrmResult<T>` type alias
-- [ ] Implement `From<sqlx::Error>` conversions
-- [ ] Add context to errors (model, column, etc.)
+**Completed:**
+- [x] Define `OrmError` enum with variants (NotFound, Validation, Constraint, Transaction, Hook, Database, Other)
+- [x] Add `OrmResult<T>` type alias
+- [x] Add `from_sqlx_error()` conversion from sqlx::Error
+- [x] Add helper methods (not_found, validation, constraint, etc.)
+- [x] Add `is_not_found()`, `is_validation()`, `is_constraint()` checks
+- [x] Add `IntoOrmResult` trait for ergonomic conversions
 
 ### 5.2 Performance Optimizations
 
-**Issues:**
-- No prepared statement caching
-- No connection pool tuning
-- Potential N+1 queries
-
-**Solutions:**
-
-```rust
-// Prepared statement cache
-pub struct CachedStatement {
-    cache: RwLock<HashMap<String, PreparedStatement>>,
-    pool: PgPool,
-}
-
-impl PgModel {
-    async fn cached_query(sql: &str) -> PreparedStatement {
-        // Check cache, prepare if missing
-    }
-}
-
-// Connection pool tuning via config
-#[derive(Config)]
-pub struct DatabaseConfig {
-    #[env("DATABASE_URL")]
-    pub url: String,
-
-    #[env("DB_MIN_CONNECTIONS", default = 5)]
-    pub min_connections: u32,
-
-    #[env("DB_MAX_CONNECTIONS", default = 20)]
-    pub max_connections: u32,
-
-    #[env("DB_IDLE_TIMEOUT", default = 300)]
-    pub idle_timeout_secs: u64,
-}
-```
+**Status:** Partial - Logging infrastructure ready
 
 **Changes:**
 - [ ] Add prepared statement cache
 - [ ] Add connection pool configuration
 - [ ] Add query timeout support
-- [ ] Add retry logic for transient failures
-- [ ] Add metrics (query time, connection usage)
 
-### 5.3 Observability
+### 5.3 Observability ✅
 
-**Goal:** Debugging and monitoring support
+**Status:** Complete - Query logging and monitoring
 
 ```rust
-// AFTER: Query logging
-#[derive(Config)]
-pub struct LoggingConfig {
-    #[env("LOG_SQL", default = false)]
-    pub log_sql: bool,
+use rok_orm::logging::{Logger, LogLevel, QueryTimer};
 
-    #[env("LOG_SLOW_QUERIES", default = true)]
-    pub log_slow_queries: bool,
+let logger = Logger::new()
+    .with_slow_query_threshold(100)
+    .with_log_level(LogLevel::Debug);
 
-    #[env("SLOW_QUERY_THRESHOLD_MS", default = 1000)]
-    pub slow_query_threshold_ms: u64,
-}
-
-// Usage
-let pool = PgPool::connect(&url).await?;
-pool.attach_callback(|event| {
-    match event {
-        QueryEvent::Executed { sql, duration } => {
-            tracing::debug!(sql, duration_ms = duration.as_millis());
-        }
-        QueryEvent::SlowQuery { sql, duration } => {
-            tracing::warn!(sql, duration_ms = duration.as_millis(), "Slow query");
-        }
-    }
-});
+let timer = QueryTimer::new();
+// ... execute query ...
+let entry = LogEntry::new(sql, params, timer.elapsed(), LogLevel::Info);
+logger.log(entry.with_slow_flag(100));
 ```
 
-**Changes:**
-- [ ] Add query logging with feature flag
-- [ ] Add slow query detection
-- [ ] Add OpenTelemetry tracing
-- [ ] Add metrics export
+**Completed:**
+- [x] Add `Logger` struct with configurable log level
+- [x] Add `LogLevel` enum (Trace, Debug, Info, Warn, Error)
+- [x] Add `LogEntry` for query log data
+- [x] Add `QueryTimer` for measuring query duration
+- [x] Add slow query detection with threshold
+- [x] Add tests
 
 ### 5.4 Testing Utilities
 

@@ -43,7 +43,11 @@ pub use hooks::{HookError, HookType, ModelHooks, HookExecutor};
 pub mod eager;
 pub mod pagination;
 pub mod scopes;
+pub mod errors;
+pub mod logging;
 pub use pagination::{Page, PaginationOptions};
+pub use errors::{OrmError, OrmResult, IntoOrmResult};
+pub use logging::{Logger, LogLevel, LogEntry, QueryTimer};
 
 #[cfg(feature = "postgres")]
 pub mod executor;
