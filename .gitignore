@@ -31,3 +31,8 @@ docs/book/
 # Temporary files
 *.tmp
 *.bak
+
+# Claude
+.claude/
+
+# /plan/
