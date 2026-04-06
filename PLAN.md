@@ -154,19 +154,24 @@ let posts = Post::query()
 - [x] Implement `build_query()` for batch loading with `IN` clause
 - [x] Add tests for eager loading
 
-### 2.2 Relation Instance Methods
+### 2.2 Relation Instance Methods ✅
 
-**Current State:** Relations defined but not chainable
-**Goal:** Query builder from relation methods
+**Status:** Complete - Chainable relation queries supported
 
 ```rust
 // AFTER: Chainable relation queries
-let posts = user.posts().filter("published", true).get(&pool).await?;
+let posts = user.posts()
+    .filter("published", true)
+    .order_by_desc("created_at")
+    .limit(10)
+    .get(&pool)
+    .await?;
 ```
 
-**Changes:**
-- [ ] Refine the Relations derive to generate proper methods
-- [ ] Return a query builder from relation methods
+**Completed:**
+- [x] Add `RelationQuery` trait with chainable methods
+- [x] Add helper accessors (`foreign_key()`, `child_table()`, etc.)
+- [x] QueryBuilder implements `RelationQuery` for chaining
 
 ### 2.3 Lazy Relation Loading
 

@@ -21,6 +21,14 @@
 //!     #[model(belongs_to(User))]
 //!     pub user: User,
 //! }
+//!
+//! // Chainable relation queries
+//! let posts = user.posts()
+//!     .filter("published", true)
+//!     .order_by_desc("created_at")
+//!     .limit(10)
+//!     .get(&pool)
+//!     .await?;
 //! ```
 
 use std::marker::PhantomData;
@@ -45,6 +53,80 @@ pub trait Relation<P: Model, C: Model> {
     fn query(&self, parent_id: SqlValue) -> QueryBuilder<C>;
 
     fn foreign_key_value(&self, parent: &P) -> SqlValue;
+}
+
+pub trait RelationQuery<C: Model> {
+    fn filter(self, col: &str, val: impl Into<SqlValue>) -> Self;
+    fn order_by(self, col: &str) -> Self;
+    fn order_by_desc(self, col: &str) -> Self;
+    fn limit(self, n: usize) -> Self;
+    fn offset(self, n: usize) -> Self;
+    fn where_eq(self, col: &str, val: impl Into<SqlValue>) -> Self;
+    fn where_in(self, col: &str, vals: Vec<impl Into<SqlValue>>) -> Self;
+    fn where_between(self, col: &str, lo: impl Into<SqlValue>, hi: impl Into<SqlValue>) -> Self;
+    fn where_null(self, col: &str) -> Self;
+    fn where_not_null(self, col: &str) -> Self;
+    fn where_like(self, col: &str, pattern: &str) -> Self;
+    fn builder(&self) -> &QueryBuilder<C>;
+    fn builder_mut(&mut self) -> &mut QueryBuilder<C>;
+}
+
+impl<C: Model> RelationQuery<C> for QueryBuilder<C> {
+    fn filter(mut self, col: &str, val: impl Into<SqlValue>) -> Self {
+        self = self.where_eq(col, val);
+        self
+    }
+    fn order_by(mut self, col: &str) -> Self {
+        self = self.order_by(col);
+        self
+    }
+    fn order_by_desc(mut self, col: &str) -> Self {
+        self = self.order_by_desc(col);
+        self
+    }
+    fn limit(mut self, n: usize) -> Self {
+        self = self.limit(n);
+        self
+    }
+    fn offset(mut self, n: usize) -> Self {
+        self = self.offset(n);
+        self
+    }
+    fn where_eq(mut self, col: &str, val: impl Into<SqlValue>) -> Self {
+        self = self.where_eq(col, val);
+        self
+    }
+    fn where_in(mut self, col: &str, vals: Vec<impl Into<SqlValue>>) -> Self {
+        self = self.where_in(col, vals);
+        self
+    }
+    fn where_between(
+        mut self,
+        col: &str,
+        lo: impl Into<SqlValue>,
+        hi: impl Into<SqlValue>,
+    ) -> Self {
+        self = self.where_between(col, lo, hi);
+        self
+    }
+    fn where_null(mut self, col: &str) -> Self {
+        self = self.where_null(col);
+        self
+    }
+    fn where_not_null(mut self, col: &str) -> Self {
+        self = self.where_not_null(col);
+        self
+    }
+    fn where_like(mut self, col: &str, pattern: &str) -> Self {
+        self = self.where_like(col, pattern);
+        self
+    }
+    fn builder(&self) -> &QueryBuilder<C> {
+        self
+    }
+    fn builder_mut(&mut self) -> &mut QueryBuilder<C> {
+        self
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +167,14 @@ where
 
     pub fn query_for(&self, parent_id: SqlValue) -> QueryBuilder<C> {
         QueryBuilder::new(self.child_table).where_eq(&self.foreign_key, parent_id)
+    }
+
+    pub fn foreign_key(&self) -> &str {
+        &self.foreign_key
+    }
+
+    pub fn child_table(&self) -> &str {
+        self.child_table
     }
 }
 
@@ -138,6 +228,14 @@ where
     pub fn query_for(&self, parent_id: SqlValue) -> QueryBuilder<C> {
         QueryBuilder::new(self.child_table).where_eq(&self.foreign_key, parent_id)
     }
+
+    pub fn foreign_key(&self) -> &str {
+        &self.foreign_key
+    }
+
+    pub fn child_table(&self) -> &str {
+        self.child_table
+    }
 }
 
 impl<P, C> Relation<P, C> for HasOne<P, C>
@@ -189,6 +287,18 @@ where
 
     pub fn query_for(&self, fk_value: SqlValue) -> QueryBuilder<C> {
         QueryBuilder::<C>::new(self.related_table).where_eq(self.related_pk, fk_value)
+    }
+
+    pub fn foreign_key(&self) -> &str {
+        &self.foreign_key
+    }
+
+    pub fn related_table(&self) -> &str {
+        self.related_table
+    }
+
+    pub fn related_pk(&self) -> &str {
+        self.related_pk
     }
 }
 
