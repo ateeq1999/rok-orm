@@ -233,22 +233,14 @@ pub async fn exists<T>(pool: &MyPool, builder: QueryBuilder<T>) -> Result<bool, 
     row.try_get::<bool, _>(0)
 }
 
+#[allow(dead_code)]
 pub async fn pluck<T>(
-    pool: &MyPool,
-    builder: QueryBuilder<T>,
-    column: &str,
+    _pool: &MyPool,
+    _builder: QueryBuilder<T>,
+    _column: &str,
 ) -> Result<Vec<SqlValue>, sqlx::Error> {
-    let (sql, params) = builder.pluck_sql_with_dialect(Dialect::Mysql, column);
-    let mut query = sqlx::query(&sql);
-    for p in params {
-        add_param(&mut query, p);
-    }
-    let rows = query.fetch_all(pool).await?;
-    let mut values = Vec::new();
-    for row in rows {
-        values.push(row.try_get::<SqlValue, _>(0)?);
-    }
-    Ok(values)
+    unimplemented!("pluck requires concrete types; use a typed query instead")
+}
 }
 
 pub async fn update_all<T>(

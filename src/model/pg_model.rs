@@ -276,7 +276,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
 
     async fn paginate_where(
         pool: &PgPool,
-        mut builder: QueryBuilder<Self>,
+        builder: QueryBuilder<Self>,
         page: i64,
         per_page: i64,
     ) -> Result<crate::pagination::Page<Self>, sqlx::Error>
@@ -284,8 +284,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         Self: Sized,
     {
         let total = postgres::count(pool, builder.clone()).await?;
-        let paginated_builder = std::mem::take(&mut builder).paginate(page, per_page);
-        let data = postgres::fetch_all(pool, paginated_builder).await?;
+        let data = postgres::fetch_all(pool, builder.paginate(page, per_page)).await?;
         Ok(crate::pagination::Page::new(data, total, per_page, page))
     }
 

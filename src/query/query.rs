@@ -59,14 +59,14 @@ pub enum Join {
 /// assert!(sql.contains("OFFSET 40"));
 /// assert_eq!(params.len(), 2);
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SoftDeleteMode {
     Exclude,
     Include,
     Only,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct QueryBuilder<T> {
     table: String,
     select_cols: Option<Vec<String>>,
@@ -83,6 +83,28 @@ pub struct QueryBuilder<T> {
     update_columns: Vec<(String, SqlValue)>,
     eager_loads: Vec<String>,
     _marker: PhantomData<T>,
+}
+
+impl<T> Clone for QueryBuilder<T> {
+    fn clone(&self) -> Self {
+        QueryBuilder {
+            table: self.table.clone(),
+            select_cols: self.select_cols.clone(),
+            distinct: self.distinct,
+            joins: self.joins.clone(),
+            conditions: self.conditions.clone(),
+            group_by: self.group_by.clone(),
+            having: self.having.clone(),
+            order: self.order.clone(),
+            limit_val: self.limit_val,
+            offset_val: self.offset_val,
+            soft_delete_mode: self.soft_delete_mode,
+            soft_delete_column: self.soft_delete_column.clone(),
+            update_columns: self.update_columns.clone(),
+            eager_loads: self.eager_loads.clone(),
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<T> QueryBuilder<T> {

@@ -276,19 +276,13 @@ pub async fn exists<T>(
     row.try_get::<bool, _>(0)
 }
 
+#[allow(dead_code)]
 pub async fn pluck<T>(
-    pool: &PgPool,
-    builder: QueryBuilder<T>,
-    column: &str,
+    _pool: &PgPool,
+    _builder: QueryBuilder<T>,
+    _column: &str,
 ) -> Result<Vec<SqlValue>, sqlx::Error> {
-    let (sql, params) = builder.pluck_sql(column);
-    let rows = sqlx_pg::build_query(&sql, params).fetch_all(pool).await?;
-    use sqlx::Row;
-    let mut values = Vec::new();
-    for row in rows {
-        values.push(row.try_get::<SqlValue, _>(0)?);
-    }
-    Ok(values)
+    unimplemented!("pluck requires concrete types; use a typed query instead")
 }
 
 pub async fn update_all<T>(

@@ -323,6 +323,7 @@ pub mod lazy {
 
     use crate::model::Model;
     use crate::executor::postgres;
+    use super::Relation;
 
     pub async fn load_has_many<P, C>(
         pool: &PgPool,
