@@ -1,0 +1,158 @@
+﻿//! PostgreSQL transaction wrapper.
+//!
+//! [`Tx`] wraps a [`sqlx::Transaction`] and exposes the same ORM operations as
+//! [`executor`], but all run inside a single database transaction.
+//!
+//! ```rust,ignore
+//! use rok_orm::transaction::Tx;
+//!
+//! let mut tx = Tx::begin(&pool).await?;
+//!
+//! tx.insert::<User>("users", &[("name", "Alice".into())]).await?;
+//! tx.insert::<Post>("posts", &[("user_id", 1i64.into()), ("body", "hello".into())]).await?;
+//!
+//! tx.commit().await?;
+//! // tx.rollback().await? ΓÇö called automatically on Drop if not committed
+//! ```
+
+use crate::model::Model;
+use crate::query::{QueryBuilder, SqlValue};
+use crate::executor::sqlx_pg;
+use sqlx::{postgres::PgRow, PgPool};
+
+/// A running PostgreSQL transaction.
+///
+/// All ORM operations performed on `Tx` participate in the same database
+/// transaction.  Call [`commit`](Tx::commit) to persist changes or
+/// [`rollback`](Tx::rollback) to discard them.  If `Tx` is dropped without
+/// either being called, the transaction is rolled back automatically by sqlx.
+pub struct Tx<'c> {
+    inner: sqlx::Transaction<'c, sqlx::Postgres>,
+}
+
+impl<'c> Tx<'c> {
+    /// Begin a new transaction on the given pool.
+    pub async fn begin(pool: &'c PgPool) -> Result<Self, sqlx::Error> {
+        Ok(Self { inner: pool.begin().await? })
+    }
+
+    /// Commit the transaction.
+    pub async fn commit(self) -> Result<(), sqlx::Error> {
+        self.inner.commit().await
+    }
+
+    /// Roll back the transaction explicitly (also happens automatically on drop).
+    pub async fn rollback(self) -> Result<(), sqlx::Error> {
+        self.inner.rollback().await
+    }
+
+    // ΓöÇΓöÇ read ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    /// Fetch all rows matching the builder, within this transaction.
+    pub async fn fetch_all<T>(&mut self, builder: QueryBuilder<T>) -> Result<Vec<T>, sqlx::Error>
+    where
+        T: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+    {
+        let (sql, params) = builder.to_sql();
+        sqlx_pg::build_query_as::<T>(&sql, params)
+            .fetch_all(&mut *self.inner)
+            .await
+    }
+
+    /// Fetch at most one row matching the builder, within this transaction.
+    pub async fn fetch_optional<T>(
+        &mut self,
+        builder: QueryBuilder<T>,
+    ) -> Result<Option<T>, sqlx::Error>
+    where
+        T: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+    {
+        let (sql, params) = builder.to_sql();
+        sqlx_pg::build_query_as::<T>(&sql, params)
+            .fetch_optional(&mut *self.inner)
+            .await
+    }
+
+    /// Return the row count matching the builder's WHERE clause, within this transaction.
+    pub async fn count<T>(&mut self, builder: QueryBuilder<T>) -> Result<i64, sqlx::Error> {
+        let (sql, params) = builder.to_count_sql();
+        let row = sqlx_pg::build_query(&sql, params)
+            .fetch_one(&mut *self.inner)
+            .await?;
+        use sqlx::Row;
+        row.try_get::<i64, _>(0)
+    }
+
+    // ΓöÇΓöÇ write ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    /// Execute a raw SQL string and return rows affected, within this transaction.
+    pub async fn execute_raw(
+        &mut self,
+        sql: &str,
+        params: Vec<SqlValue>,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx_pg::build_query(sql, params)
+            .execute(&mut *self.inner)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// Insert a row and return rows affected, within this transaction.
+    pub async fn insert<T>(
+        &mut self,
+        table: &str,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error> {
+        let (sql, params) = QueryBuilder::<T>::insert_sql(table, data);
+        self.execute_raw(&sql, params).await
+    }
+
+    /// Insert a row and return the full inserted row via `RETURNING *`.
+    pub async fn insert_returning<T>(
+        &mut self,
+        table: &str,
+        data: &[(&str, SqlValue)],
+    ) -> Result<T, sqlx::Error>
+    where
+        T: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+    {
+        let (base_sql, params) = QueryBuilder::<T>::insert_sql(table, data);
+        let sql = format!("{base_sql} RETURNING *");
+        sqlx_pg::build_query_as::<T>(&sql, params)
+            .fetch_optional(&mut *self.inner)
+            .await?
+            .ok_or(sqlx::Error::RowNotFound)
+    }
+
+    /// Insert multiple rows in a single statement, within this transaction.
+    pub async fn bulk_insert<T>(
+        &mut self,
+        table: &str,
+        rows: &[Vec<(&str, SqlValue)>],
+    ) -> Result<u64, sqlx::Error> {
+        if rows.is_empty() {
+            return Ok(0);
+        }
+        let (sql, params) = QueryBuilder::<T>::bulk_insert_sql(table, rows);
+        self.execute_raw(&sql, params).await
+    }
+
+    /// Update rows matching the builder's conditions, within this transaction.
+    pub async fn update<T>(
+        &mut self,
+        builder: QueryBuilder<T>,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error> {
+        let (sql, params) = builder.to_update_sql(data);
+        self.execute_raw(&sql, params).await
+    }
+
+    /// Delete rows matching the builder's conditions, within this transaction.
+    pub async fn delete<T>(
+        &mut self,
+        builder: QueryBuilder<T>,
+    ) -> Result<u64, sqlx::Error> {
+        let (sql, params) = builder.to_delete_sql();
+        self.execute_raw(&sql, params).await
+    }
+}
