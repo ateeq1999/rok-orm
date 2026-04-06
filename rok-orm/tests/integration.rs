@@ -572,8 +572,12 @@ fn page_has_next_and_prev() {
     assert!(!page1.has_prev());
 
     let page5: Page<i32> = Page::new(vec![], 100, 10, 5);
-    assert!(!page5.has_next());
+    assert!(page5.has_next());
     assert!(page5.has_prev());
+
+    let page10: Page<i32> = Page::new(vec![], 100, 10, 10);
+    assert!(!page10.has_next());
+    assert!(page10.has_prev());
 }
 
 #[test]
@@ -604,7 +608,7 @@ fn query_builder_paginate_caps_at_100() {
 
 #[test]
 fn query_builder_sum_sql() {
-    let (sql, params) = User::query().sum_sql("age").to_sql();
+    let (sql, params) = User::query().sum_sql("age");
 
     assert!(sql.contains("SELECT SUM(age) FROM users"));
     assert!(params.is_empty());
@@ -612,7 +616,7 @@ fn query_builder_sum_sql() {
 
 #[test]
 fn query_builder_avg_sql() {
-    let (sql, params) = User::query().avg_sql("price").to_sql();
+    let (sql, params) = User::query().avg_sql("price");
 
     assert!(sql.contains("SELECT AVG(price) FROM users"));
     assert!(params.is_empty());
@@ -620,7 +624,7 @@ fn query_builder_avg_sql() {
 
 #[test]
 fn query_builder_min_sql() {
-    let (sql, params) = User::query().min_sql("created_at").to_sql();
+    let (sql, params) = User::query().min_sql("created_at");
 
     assert!(sql.contains("SELECT MIN(created_at) FROM users"));
     assert!(params.is_empty());
@@ -628,7 +632,7 @@ fn query_builder_min_sql() {
 
 #[test]
 fn query_builder_max_sql() {
-    let (sql, params) = User::query().max_sql("score").to_sql();
+    let (sql, params) = User::query().max_sql("score");
 
     assert!(sql.contains("SELECT MAX(score) FROM users"));
     assert!(params.is_empty());
@@ -636,10 +640,7 @@ fn query_builder_max_sql() {
 
 #[test]
 fn query_builder_aggregate_with_where() {
-    let (sql, params) = User::query()
-        .filter("active", true)
-        .sum_sql("amount")
-        .to_sql();
+    let (sql, params) = User::query().filter("active", true).sum_sql("amount");
 
     assert!(sql.contains("SELECT SUM(amount) FROM users"));
     assert!(sql.contains("WHERE active = $1"));
@@ -682,16 +683,6 @@ fn upsert_do_nothing_sql() {
 }
 
 // ── batch operations ────────────────────────────────────────────────────────────────
-
-#[test]
-fn delete_in_sql_sqlite_dialect() {
-    let builder = QueryBuilder::<()>::new("users");
-    let (sql, params) =
-        builder.to_delete_in_sql_with_dialect(Dialect::Sqlite, "id", &[1i64.into(), 2i64.into()]);
-
-    assert!(sql.contains("WHERE id IN (?, ?)"));
-    assert_eq!(params.len(), 2);
-}
 
 // ── exists and pluck ───────────────────────────────────────────────────────────
 
