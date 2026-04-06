@@ -720,7 +720,7 @@ impl<T> QueryBuilder<T> {
     ) -> (String, Vec<SqlValue>) {
         let cols: Vec<&str> = data.iter().map(|(c, _)| *c).collect();
         let placeholders: Vec<String> = (1..=data.len()).map(|i| format!("${i}")).collect();
-        let mut params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
+        let params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
 
         let update_clauses: Vec<String> = update_columns
             .iter()

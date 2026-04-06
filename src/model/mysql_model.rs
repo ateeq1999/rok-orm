@@ -26,10 +26,12 @@
 use chrono::Utc;
 use crate::model::Model;
 use crate::query::{QueryBuilder, SqlValue};
-use sqlx::mysql::{MyPool, MyRow};
+use sqlx::mysql::MyRow;
+use sqlx::mysql::MyPool;
 
 use crate::executor::mysql;
 
+#[allow(async_fn_in_trait)]
 pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     fn all(
         pool: &MyPool,
@@ -73,7 +75,7 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     where
         Self: Sized,
     {
-        mysql::fetch_optional(pool, Self::query().limit(1))
+        mysql::fetch_optional(pool, Self::query().limit(1)).await
     }
 
     async fn first_or_404(pool: &MyPool) -> Result<Self, sqlx::Error>

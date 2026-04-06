@@ -136,9 +136,13 @@ where
     P: Model,
     C: Model,
 {
+    #[allow(dead_code)]
     parent_table: &'static str,
+    #[allow(dead_code)]
     parent_pk: &'static str,
+    #[allow(dead_code)]
     child_table: &'static str,
+    #[allow(dead_code)]
     child_pk: &'static str,
     foreign_key: String,
     _phantom: PhantomData<(P, C)>,
@@ -199,7 +203,9 @@ where
     P: Model,
     C: Model,
 {
+    #[allow(dead_code)]
     parent_table: &'static str,
+    #[allow(dead_code)]
     parent_pk: &'static str,
     child_table: &'static str,
     foreign_key: String,
@@ -259,6 +265,7 @@ where
     P: Model,
     C: Model,
 {
+    #[allow(dead_code)]
     parent_table: &'static str,
     foreign_key: String,
     related_table: &'static str,

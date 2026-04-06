@@ -22,10 +22,10 @@
 //! executor::delete(&pool, User::find(42i64)).await?;
 //! ```
 
-use chrono::Utc;
 use crate::model::Model;
 use crate::query::{Dialect, QueryBuilder, SqlValue};
-use sqlx::mysql::{MyPool, MyRow};
+use sqlx::mysql::MyRow;
+use sqlx::mysql::MyPool;
 
 pub async fn fetch_all<T>(pool: &MyPool, builder: QueryBuilder<T>) -> Result<Vec<T>, sqlx::Error>
 where
@@ -241,7 +241,6 @@ pub async fn pluck<T>(
 ) -> Result<Vec<SqlValue>, sqlx::Error> {
     unimplemented!("pluck requires concrete types; use a typed query instead")
 }
-}
 
 pub async fn update_all<T>(
     pool: &MyPool,
@@ -260,10 +259,8 @@ fn add_param(query: &mut sqlx::query::Query<sqlx::MySql, sqlx::mysql::MySqlArgum
     match value {
         SqlValue::Null => query.bind(None::<String>),
         SqlValue::Bool(v) => query.bind(v),
-        SqlValue::I32(v) => query.bind(v),
-        SqlValue::I64(v) => query.bind(v),
-        SqlValue::F64(v) => query.bind(v),
+        SqlValue::Integer(v) => query.bind(v),
+        SqlValue::Float(v) => query.bind(v),
         SqlValue::Text(v) => query.bind(v),
-        SqlValue::Binary(v) => query.bind(v),
     };
 }

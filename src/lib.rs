@@ -44,12 +44,10 @@ pub use model::Model;
 pub use model::PgModel;
 #[cfg(feature = "sqlite")]
 pub use model::SqliteModel;
-#[cfg(feature = "mysql")]
-pub use model::MyModel;
 
 // ── Executor ─────────────────────────────────────────────────────────────────
 
-#[cfg(feature = "postgres")]
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
 pub mod executor;
 
 // ── Relations ────────────────────────────────────────────────────────────────

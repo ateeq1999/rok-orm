@@ -38,7 +38,9 @@ where
     P: Model,
     C: Model,
 {
+    #[allow(dead_code)]
     parent_table: &'static str,
+    #[allow(dead_code)]
     parent_pk: &'static str,
     pivot_table: String,
     left_key: String,

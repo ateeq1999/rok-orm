@@ -117,8 +117,7 @@ where
     T: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unpin,
 {
     if let Some(col) = T::soft_delete_column() {
-        let mut updated_builder = builder.with_trashed();
-        updated_builder.push_update_column(col, SqlValue::Null);
+        let updated_builder = builder.with_trashed().push_update_column(col, SqlValue::Null);
         let (sql, params) = updated_builder.to_restore_sql_with_dialect(Dialect::Sqlite);
         execute_raw(pool, &sql, params).await
     } else {

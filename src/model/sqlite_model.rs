@@ -35,6 +35,7 @@ use sqlx::{sqlite::SqliteRow, SqlitePool};
 
 use crate::executor::sqlite;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct NotFoundError {
     pub model: &'static str,
@@ -49,6 +50,7 @@ impl Display for NotFoundError {
 
 impl std::error::Error for NotFoundError {}
 
+#[allow(async_fn_in_trait)]
 pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unpin {
     fn all(
         pool: &SqlitePool,
@@ -95,7 +97,7 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
     where
         Self: Sized,
     {
-        sqlite::fetch_optional(pool, Self::query().limit(1))
+        sqlite::fetch_optional(pool, Self::query().limit(1)).await
     }
 
     async fn first_or_404(pool: &SqlitePool) -> Result<Self, sqlx::Error>
