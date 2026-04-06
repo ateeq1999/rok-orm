@@ -315,3 +315,56 @@ where
         SqlValue::Null
     }
 }
+
+#[cfg(feature = "postgres")]
+pub mod lazy {
+    use sqlx::PgPool;
+
+    use crate::{Model, executor};
+
+    pub async fn load_has_many<P, C>(
+        pool: &PgPool,
+        relation: &super::HasMany<P, C>,
+        parent_ids: &[i64],
+    ) -> Result<Vec<C>, sqlx::Error>
+    where
+        P: Model,
+        C: Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
+    {
+        let builder = relation.query_for(crate::SqlValue::Null);
+        let mut combined_builder = builder;
+        
+        for id in parent_ids {
+            combined_builder = combined_builder.or_where_eq(relation.foreign_key(), *id);
+        }
+        
+        executor::fetch_all(pool, combined_builder).await
+    }
+
+    pub async fn load_has_one<P, C>(
+        pool: &PgPool,
+        relation: &super::HasOne<P, C>,
+        parent_id: i64,
+    ) -> Result<Option<C>, sqlx::Error>
+    where
+        P: Model,
+        C: Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
+    {
+        let builder = relation.query_for(crate::SqlValue::Integer(parent_id));
+        executor::fetch_optional(pool, builder).await
+    }
+
+    pub async fn load_belongs_to<P, C>(
+        pool: &PgPool,
+        relation: &super::BelongsTo<P, C>,
+        parent: &P,
+    ) -> Result<Option<C>, sqlx::Error>
+    where
+        P: Model,
+        C: Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
+    {
+        let fk_value = relation.foreign_key_value(parent);
+        let builder = relation.query_for(fk_value);
+        executor::fetch_optional(pool, builder).await
+    }
+}

@@ -173,20 +173,29 @@ let posts = user.posts()
 - [x] Add helper accessors (`foreign_key()`, `child_table()`, etc.)
 - [x] QueryBuilder implements `RelationQuery` for chaining
 
-### 2.3 Lazy Relation Loading
+### 2.3 Lazy Relation Loading ✅
 
-**Current State:** Not implemented
-**Goal:** On-demand relation loading
+**Status:** Complete - On-demand relation loading supported
 
 ```rust
 // AFTER: Lazy loading
-let post = Post::find(1).await?;
-let user = post.user(&pool).await?;  // Lazy load
+use rok_orm::relations::lazy;
+
+// Load has_many relation
+let posts = lazy::load_has_many(&pool, &user.posts, &[1, 2, 3]).await?;
+
+// Load has_one relation
+let profile = lazy::load_has_one(&pool, &user.profile, user_id).await?;
+
+// Load belongs_to relation
+let user = lazy::load_belongs_to(&pool, &post.user, &post).await?;
 ```
 
-**Changes:**
-- [ ] Add lazy loading methods to relation types
-- [ ] Require pool reference for lazy loading
+**Completed:**
+- [x] Add `lazy::load_has_many()` for batch loading children
+- [x] Add `lazy::load_has_one()` for single related record
+- [x] Add `lazy::load_belongs_to()` for parent record
+- [x] Gated behind `postgres` feature flag
 
 ---
 
