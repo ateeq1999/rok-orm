@@ -1,4 +1,4 @@
-use rok_orm::Model;
+use rok_orm::{Dialect, Model, QueryBuilder};
 
 #[derive(Model)]
 pub struct User {
@@ -317,6 +317,18 @@ fn timestamps_disabled() {
     assert!(!User::timestamps_enabled());
 }
 
+#[test]
+fn timestamps_columns() {
+    assert_eq!(TimestampedUser::created_at_column(), Some("created_at"));
+    assert_eq!(TimestampedUser::updated_at_column(), Some("updated_at"));
+}
+
+#[test]
+fn no_timestamps_columns() {
+    assert_eq!(User::created_at_column(), None);
+    assert_eq!(User::updated_at_column(), None);
+}
+
 // ── query! macro with filter shorthand ─────────────────────────────────────
 
 #[test]
@@ -475,4 +487,231 @@ fn belongs_to_many_count_query() {
     let (sql, _) = relation.count_sql_for(1i64.into());
     assert!(sql.starts_with("SELECT COUNT(*) FROM tags"));
     assert!(sql.contains("INNER JOIN post_tags"));
+}
+
+// ── eager loading ─────────────────────────────────────────────────────────────
+
+#[test]
+fn query_builder_with_single_relation() {
+    let q = User::query().with("posts");
+    assert_eq!(q.eager_loads(), &["posts"]);
+}
+
+#[test]
+fn query_builder_with_multiple_relations() {
+    let q = User::query().with("posts").with("comments").with("profile");
+    assert_eq!(q.eager_loads(), &["posts", "comments", "profile"]);
+}
+
+#[test]
+fn query_builder_with_many_relations() {
+    let q = User::query().with_many(vec!["posts".to_string(), "tags".to_string()]);
+    assert_eq!(q.eager_loads(), &["posts", "tags"]);
+}
+
+#[test]
+fn eager_has_many_build_query() {
+    use rok_orm::eager::HasManyEager;
+
+    let loader = HasManyEager::<User>::new("posts", "user_id".to_string(), "id");
+    let (sql, params) = loader
+        .build_query::<BlogPost>(&[1i64.into(), 2i64.into()])
+        .to_sql();
+
+    assert!(sql.contains("SELECT * FROM posts"));
+    assert!(sql.contains("WHERE user_id IN ($1, $2)"));
+    assert_eq!(params.len(), 2);
+}
+
+#[test]
+fn eager_belongs_to_build_query() {
+    use rok_orm::eager::BelongsToEager;
+
+    let loader = BelongsToEager::<BlogPost>::new("posts", "user_id".to_string(), "users", "id");
+    let (sql, params) = loader
+        .build_query::<User>(&[1i64.into(), 2i64.into()])
+        .to_sql();
+
+    assert!(sql.contains("SELECT * FROM users"));
+    assert!(sql.contains("WHERE id IN ($1, $2)"));
+    assert_eq!(params.len(), 2);
+}
+
+#[test]
+fn eager_query_empty_ids_returns_limit_zero() {
+    use rok_orm::eager::HasManyEager;
+
+    let loader = HasManyEager::<User>::new("posts", "user_id".to_string(), "id");
+    let (sql, _) = loader.build_query::<BlogPost>(&[]).to_sql();
+
+    assert!(sql.contains("LIMIT 0"));
+}
+
+// ── pagination ────────────────────────────────────────────────────────────────
+
+#[test]
+fn page_new_calculates_last_page() {
+    use rok_orm::pagination::Page;
+
+    let page: Page<i32> = Page::new(vec![1, 2, 3], 25, 10, 1);
+
+    assert_eq!(page.total, 25);
+    assert_eq!(page.per_page, 10);
+    assert_eq!(page.current_page, 1);
+    assert_eq!(page.last_page, 3);
+    assert!(page.has_next());
+    assert!(!page.has_prev());
+}
+
+#[test]
+fn page_has_next_and_prev() {
+    use rok_orm::pagination::Page;
+
+    let page1: Page<i32> = Page::new(vec![], 100, 10, 1);
+    assert!(page1.has_next());
+    assert!(!page1.has_prev());
+
+    let page5: Page<i32> = Page::new(vec![], 100, 10, 5);
+    assert!(!page5.has_next());
+    assert!(page5.has_prev());
+}
+
+#[test]
+fn query_builder_paginate() {
+    let (sql, params) = User::query().paginate(2, 15).to_sql();
+
+    assert!(sql.contains("LIMIT 15"));
+    assert!(sql.contains("OFFSET 15"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn query_builder_paginate_page_1() {
+    let (sql, _) = User::query().paginate(1, 10).to_sql();
+
+    assert!(sql.contains("LIMIT 10"));
+    assert!(sql.contains("OFFSET 0"));
+}
+
+#[test]
+fn query_builder_paginate_caps_at_100() {
+    let (sql, _) = User::query().paginate(1, 500).to_sql();
+
+    assert!(sql.contains("LIMIT 100"));
+}
+
+// ── aggregation ────────────────────────────────────────────────────────────────
+
+#[test]
+fn query_builder_sum_sql() {
+    let (sql, params) = User::query().sum_sql("age").to_sql();
+
+    assert!(sql.contains("SELECT SUM(age) FROM users"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn query_builder_avg_sql() {
+    let (sql, params) = User::query().avg_sql("price").to_sql();
+
+    assert!(sql.contains("SELECT AVG(price) FROM users"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn query_builder_min_sql() {
+    let (sql, params) = User::query().min_sql("created_at").to_sql();
+
+    assert!(sql.contains("SELECT MIN(created_at) FROM users"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn query_builder_max_sql() {
+    let (sql, params) = User::query().max_sql("score").to_sql();
+
+    assert!(sql.contains("SELECT MAX(score) FROM users"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn query_builder_aggregate_with_where() {
+    let (sql, params) = User::query()
+        .filter("active", true)
+        .sum_sql("amount")
+        .to_sql();
+
+    assert!(sql.contains("SELECT SUM(amount) FROM users"));
+    assert!(sql.contains("WHERE active = $1"));
+    assert_eq!(params.len(), 1);
+}
+
+// ── upsert ────────────────────────────────────────────────────────────────────
+
+#[test]
+fn upsert_sql_generates_on_conflict() {
+    let (sql, params) = QueryBuilder::<()>::upsert_sql(
+        "users",
+        &[
+            ("email", "test@example.com".into()),
+            ("name", "Test".into()),
+        ],
+        "email",
+        &["name"],
+    );
+
+    assert!(sql.contains("INSERT INTO users"));
+    assert!(sql.contains("ON CONFLICT (email)"));
+    assert!(sql.contains("DO UPDATE SET"));
+    assert!(sql.contains("name = EXCLUDED.name"));
+    assert_eq!(params.len(), 2);
+}
+
+#[test]
+fn upsert_do_nothing_sql() {
+    let (sql, params) = QueryBuilder::<()>::upsert_do_nothing_sql(
+        "users",
+        &[("email", "test@example.com".into())],
+        "email",
+    );
+
+    assert!(sql.contains("INSERT INTO users"));
+    assert!(sql.contains("ON CONFLICT (email)"));
+    assert!(sql.contains("DO NOTHING"));
+    assert_eq!(params.len(), 1);
+}
+
+// ── batch operations ────────────────────────────────────────────────────────────────
+
+#[test]
+fn delete_in_sql_generates_in_clause() {
+    let builder = QueryBuilder::<()>::new("users");
+    let (sql, params) = builder.to_delete_in_sql_with_dialect(
+        Dialect::Postgres,
+        "id",
+        &[1i64.into(), 2i64.into(), 3i64.into()],
+    );
+
+    assert!(sql.starts_with("DELETE FROM users"));
+    assert!(sql.contains("WHERE id IN ($1, $2, $3)"));
+    assert_eq!(params.len(), 3);
+}
+
+#[test]
+fn delete_in_sql_empty_values() {
+    let builder = QueryBuilder::<()>::new("users");
+    let (sql, params) = builder.to_delete_in_sql_with_dialect(Dialect::Postgres, "id", &[]);
+
+    assert!(sql.contains("DELETE FROM users"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn delete_in_sql_sqlite_dialect() {
+    let builder = QueryBuilder::<()>::new("users");
+    let (sql, params) =
+        builder.to_delete_in_sql_with_dialect(Dialect::Sqlite, "id", &[1i64.into(), 2i64.into()]);
+
+    assert!(sql.contains("WHERE id IN (?, ?)"));
+    assert_eq!(params.len(), 2);
 }

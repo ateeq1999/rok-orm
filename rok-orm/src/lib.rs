@@ -40,6 +40,10 @@ pub use belongs_to_many::BelongsToMany;
 pub mod hooks;
 pub use hooks::{HookError, HookType, ModelHooks, HookExecutor};
 
+pub mod eager;
+pub mod pagination;
+pub use pagination::{Page, PaginationOptions};
+
 #[cfg(feature = "postgres")]
 pub mod executor;
 

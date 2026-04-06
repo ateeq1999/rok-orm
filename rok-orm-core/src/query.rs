@@ -57,6 +57,13 @@ pub enum Join {
 /// assert!(sql.contains("OFFSET 40"));
 /// assert_eq!(params.len(), 2);
 /// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SoftDeleteMode {
+    Exclude,
+    Include,
+    Only,
+}
+
 #[derive(Debug, Clone)]
 pub struct QueryBuilder<T> {
     table: String,
@@ -69,6 +76,10 @@ pub struct QueryBuilder<T> {
     order: Vec<(String, OrderDir)>,
     limit_val: Option<usize>,
     offset_val: Option<usize>,
+    soft_delete_mode: SoftDeleteMode,
+    soft_delete_column: Option<String>,
+    update_columns: Vec<(String, SqlValue)>,
+    eager_loads: Vec<String>,
     _marker: PhantomData<T>,
 }
 
@@ -85,8 +96,41 @@ impl<T> QueryBuilder<T> {
             order: Vec::new(),
             limit_val: None,
             offset_val: None,
+            soft_delete_mode: SoftDeleteMode::Exclude,
+            soft_delete_column: None,
+            update_columns: Vec::new(),
+            eager_loads: Vec::new(),
             _marker: PhantomData,
         }
+    }
+
+    pub fn with_soft_delete(mut self, column: impl Into<String>) -> Self {
+        self.soft_delete_column = Some(column.into());
+        self
+    }
+
+    pub fn with(mut self, relation: impl Into<String>) -> Self {
+        self.eager_loads.push(relation.into());
+        self
+    }
+
+    pub fn with_many(mut self, relations: Vec<String>) -> Self {
+        self.eager_loads.extend(relations);
+        self
+    }
+
+    pub fn eager_loads(&self) -> &[String] {
+        &self.eager_loads
+    }
+
+    pub fn with_trashed(mut self) -> Self {
+        self.soft_delete_mode = SoftDeleteMode::Include;
+        self
+    }
+
+    pub fn only_trashed(mut self) -> Self {
+        self.soft_delete_mode = SoftDeleteMode::Only;
+        self
     }
 
     // ── column selection ──────────────────────────────────────────────────
@@ -340,6 +384,60 @@ impl<T> QueryBuilder<T> {
         self
     }
 
+    pub fn paginate(mut self, page: i64, per_page: i64) -> Self {
+        let per_page = per_page.max(1).min(100);
+        let offset = ((page.max(1) - 1) * per_page) as usize;
+        self.limit_val = Some(per_page as usize);
+        self.offset_val = Some(offset);
+        self
+    }
+
+    // ── aggregation ────────────────────────────────────────────────────────
+
+    pub fn count_sql(&self) -> (String, Vec<SqlValue>) {
+        self.to_count_sql()
+    }
+
+    pub fn aggregate_sql(&self, func: &str, column: &str) -> (String, Vec<SqlValue>) {
+        self.aggregate_sql_with_dialect(Dialect::Postgres, func, column)
+    }
+
+    pub fn aggregate_sql_with_dialect(
+        &self,
+        dialect: Dialect,
+        func: &str,
+        column: &str,
+    ) -> (String, Vec<SqlValue>) {
+        let mut params: Vec<SqlValue> = Vec::new();
+        let joins = self.build_joins();
+        let where_clause = self.build_where_with_soft_delete(dialect, &mut params);
+        let group_by = self.build_group_by();
+        let order = self.build_order();
+
+        let sql = format!(
+            "SELECT {}({}) FROM {}{}{}{}{}",
+            func, column, self.table, joins, where_clause, group_by, order
+        );
+
+        (sql, params)
+    }
+
+    pub fn sum_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
+        self.aggregate_sql("SUM", column)
+    }
+
+    pub fn avg_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
+        self.aggregate_sql("AVG", column)
+    }
+
+    pub fn min_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
+        self.aggregate_sql("MIN", column)
+    }
+
+    pub fn max_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
+        self.aggregate_sql("MAX", column)
+    }
+
     // ── SQL generation ────────────────────────────────────────────────────
 
     /// Build a parameterized `SELECT` statement (PostgreSQL `$N` placeholders).
@@ -367,7 +465,7 @@ impl<T> QueryBuilder<T> {
         let mut params: Vec<SqlValue> = Vec::new();
 
         sql.push_str(&self.build_joins());
-        sql.push_str(&self.build_where_dialect(dialect, &mut params));
+        sql.push_str(&self.build_where_with_soft_delete(dialect, &mut params));
         sql.push_str(&self.build_group_by());
         sql.push_str(&self.build_order());
 
@@ -390,7 +488,7 @@ impl<T> QueryBuilder<T> {
     pub fn to_count_sql_with_dialect(&self, dialect: Dialect) -> (String, Vec<SqlValue>) {
         let mut params: Vec<SqlValue> = Vec::new();
         let joins = self.build_joins();
-        let where_clause = self.build_where_dialect(dialect, &mut params);
+        let where_clause = self.build_where_with_soft_delete(dialect, &mut params);
         (
             format!(
                 "SELECT COUNT(*) FROM {}{}{}",
@@ -547,6 +645,211 @@ impl<T> QueryBuilder<T> {
         (sql, params)
     }
 
+    pub fn upsert_sql(
+        table: &str,
+        data: &[(&str, SqlValue)],
+        conflict_column: &str,
+        update_columns: &[&str],
+    ) -> (String, Vec<SqlValue>) {
+        let cols: Vec<&str> = data.iter().map(|(c, _)| *c).collect();
+        let placeholders: Vec<String> = (1..=data.len()).map(|i| format!("${i}")).collect();
+        let mut params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
+
+        let update_clauses: Vec<String> = update_columns
+            .iter()
+            .enumerate()
+            .map(|(i, col)| {
+                let param_idx = params.len() + i + 1;
+                format!("{col} = EXCLUDED.{col}")
+            })
+            .collect();
+
+        let sql = format!(
+            "INSERT INTO {table} ({}) VALUES ({}) ON CONFLICT ({conflict_column}) DO UPDATE SET {}",
+            cols.join(", "),
+            placeholders.join(", "),
+            update_clauses.join(", ")
+        );
+
+        (sql, params)
+    }
+
+    pub fn upsert_sql_with_dialect(
+        dialect: Dialect,
+        table: &str,
+        data: &[(&str, SqlValue)],
+        conflict_column: &str,
+        update_columns: &[&str],
+    ) -> (String, Vec<SqlValue>) {
+        let cols: Vec<&str> = data.iter().map(|(c, _)| *c).collect();
+        let placeholders: Vec<String> = match dialect {
+            Dialect::Postgres => (1..=data.len()).map(|i| format!("${i}")).collect(),
+            Dialect::Sqlite => (0..data.len()).map(|_| "?".to_string()).collect(),
+        };
+        let params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
+
+        let update_clauses: Vec<String> = update_columns
+            .iter()
+            .map(|col| format!("{col} = EXCLUDED.{col}"))
+            .collect();
+
+        let sql = match dialect {
+            Dialect::Postgres => format!(
+                "INSERT INTO {table} ({}) VALUES ({}) ON CONFLICT ({conflict_column}) DO UPDATE SET {}",
+                cols.join(", "),
+                placeholders.join(", "),
+                update_clauses.join(", ")
+            ),
+            Dialect::Sqlite => format!(
+                "INSERT INTO {table} ({}) VALUES ({}) ON CONFLICT ({conflict_column}) DO UPDATE SET {}",
+                cols.join(", "),
+                placeholders.join(", "),
+                update_clauses.join(", ")
+            ),
+        };
+
+        (sql, params)
+    }
+
+    pub fn upsert_do_nothing_sql(
+        table: &str,
+        data: &[(&str, SqlValue)],
+        conflict_column: &str,
+    ) -> (String, Vec<SqlValue>) {
+        let cols: Vec<&str> = data.iter().map(|(c, _)| *c).collect();
+        let placeholders: Vec<String> = (1..=data.len()).map(|i| format!("${i}")).collect();
+        let params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
+
+        let sql = format!(
+            "INSERT INTO {table} ({}) VALUES ({}) ON CONFLICT ({conflict_column}) DO NOTHING",
+            cols.join(", "),
+            placeholders.join(", ")
+        );
+
+        (sql, params)
+    }
+
+    pub fn delete_in_sql(&self, column: &str, values: &[SqlValue]) -> (String, Vec<SqlValue>) {
+        self.to_delete_in_sql_with_dialect(Dialect::Postgres, column, values)
+    }
+
+    pub fn to_delete_in_sql_with_dialect(
+        &self,
+        dialect: Dialect,
+        column: &str,
+        values: &[SqlValue],
+    ) -> (String, Vec<SqlValue>) {
+        let mut params = values.to_vec();
+        let placeholders: Vec<String> = match dialect {
+            Dialect::Postgres => (1..=values.len()).map(|i| format!("${}", i)).collect(),
+            Dialect::Sqlite => (0..values.len()).map(|_| "?".to_string()).collect(),
+        };
+
+        let sql = format!(
+            "DELETE FROM {} WHERE {} IN ({})",
+            self.table,
+            column,
+            placeholders.join(", ")
+        );
+
+        (sql, params)
+    }
+
+    pub fn update_batch_sql(
+        table: &str,
+        id_column: &str,
+        updates: &[(i64, &str, SqlValue)],
+    ) -> (String, Vec<SqlValue>) {
+        let mut params: Vec<SqlValue> = Vec::new();
+        let mut set_clauses: Vec<String> = Vec::new();
+        let mut where_clauses: Vec<String> = Vec::new();
+        let mut param_offset = 0;
+
+        for (id, column, value) in updates {
+            params.push(value.clone());
+            param_offset += 1;
+            set_clauses.push(format!("WHEN ${} THEN ${}", param_offset, param_offset));
+            where_clauses.push(format!("${}", updates.len() + param_offset));
+            params.push(SqlValue::Integer(*id));
+        }
+
+        let columns: Vec<&str> = updates.iter().map(|(_, col, _)| *col).collect();
+        let case_sql = if !set_clauses.is_empty() {
+            let cases: Vec<String> = columns
+                .iter()
+                .enumerate()
+                .map(|(i, col)| {
+                    let cases: Vec<String> = updates
+                        .iter()
+                        .enumerate()
+                        .map(|(j, (_, _, _))| {
+                            let param_idx = j + 1;
+                            let val_idx = updates.len() + j * 2 + 1 + i;
+                            format!("WHEN ${} THEN ${}", param_idx, val_idx)
+                        })
+                        .collect();
+                    format!("{} = CASE {} END", col, cases.join(" "))
+                })
+                .collect();
+            cases.join(", ")
+        } else {
+            String::new()
+        };
+
+        let sql = if !case_sql.is_empty() {
+            format!(
+                "UPDATE {table} SET {case_sql} WHERE {id_column} IN ({})",
+                where_clauses.join(", ")
+            )
+        } else {
+            format!("DELETE FROM {table} WHERE 1=0")
+        };
+
+        (sql, params)
+    }
+
+    pub fn push_update_column(mut self, col: impl Into<String>, val: SqlValue) -> Self {
+        self.update_columns.push((col.into(), val));
+        self
+    }
+
+    pub fn to_restore_sql(&self) -> (String, Vec<SqlValue>) {
+        self.to_restore_sql_with_dialect(Dialect::Postgres)
+    }
+
+    pub fn to_restore_sql_with_dialect(&self, dialect: Dialect) -> (String, Vec<SqlValue>) {
+        let mut params: Vec<SqlValue> = Vec::new();
+        let set_clauses: Vec<String> = self
+            .update_columns
+            .iter()
+            .enumerate()
+            .map(|(i, (col, val))| {
+                params.push(val.clone());
+                match dialect {
+                    Dialect::Postgres => format!("{col} = ${}", i + 1),
+                    Dialect::Sqlite => format!("{col} = ?"),
+                }
+            })
+            .collect();
+
+        let mut sql = format!("UPDATE {} SET {}", self.table, set_clauses.join(", "));
+        sql.push_str(&self.build_where_dialect(dialect, &mut params));
+        (sql, params)
+    }
+
+    pub fn to_force_delete_sql(&self) -> (String, Vec<SqlValue>) {
+        self.to_force_delete_sql_with_dialect(Dialect::Postgres)
+    }
+
+    pub fn to_force_delete_sql_with_dialect(&self, dialect: Dialect) -> (String, Vec<SqlValue>) {
+        let mut params: Vec<SqlValue> = Vec::new();
+        let where_clause = self.build_where_dialect(dialect, &mut params);
+        (
+            format!("DELETE FROM {}{}", self.table, where_clause),
+            params,
+        )
+    }
+
     // ── internals ─────────────────────────────────────────────────────────
 
     fn push(mut self, op: JoinOp, cond: Condition) -> Self {
@@ -568,6 +871,24 @@ impl<T> QueryBuilder<T> {
 
     fn build_where_dialect(&self, dialect: Dialect, params: &mut Vec<SqlValue>) -> String {
         build_where_from_dialect(dialect, &self.conditions, params)
+    }
+
+    fn build_where_with_soft_delete(&self, dialect: Dialect, params: &mut Vec<SqlValue>) -> String {
+        let mut conditions = self.conditions.clone();
+
+        if let Some(ref col) = self.soft_delete_column {
+            match self.soft_delete_mode {
+                SoftDeleteMode::Exclude => {
+                    conditions.push((JoinOp::And, Condition::IsNull(col.clone())));
+                }
+                SoftDeleteMode::Include => {}
+                SoftDeleteMode::Only => {
+                    conditions.push((JoinOp::And, Condition::IsNotNull(col.clone())));
+                }
+            }
+        }
+
+        build_where_from_dialect(dialect, &conditions, params)
     }
 
     fn build_group_by(&self) -> String {
@@ -852,5 +1173,75 @@ mod tests {
         let (sql, params) = QueryBuilder::<()>::bulk_insert_sql("t", &rows);
         assert!(sql.contains("($1)"));
         assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn soft_delete_auto_filter() {
+        let (sql, _) = QueryBuilder::<()>::new("posts")
+            .with_soft_delete("deleted_at")
+            .to_sql();
+        assert!(sql.contains("WHERE deleted_at IS NULL"));
+    }
+
+    #[test]
+    fn with_trashed_includes_deleted() {
+        let (sql, _) = QueryBuilder::<()>::new("posts")
+            .with_soft_delete("deleted_at")
+            .with_trashed()
+            .to_sql();
+        assert!(!sql.contains("WHERE"));
+        assert!(sql.contains("SELECT * FROM posts"));
+    }
+
+    #[test]
+    fn only_trashed_filters_deleted_only() {
+        let (sql, _) = QueryBuilder::<()>::new("posts")
+            .with_soft_delete("deleted_at")
+            .only_trashed()
+            .to_sql();
+        assert!(sql.contains("WHERE deleted_at IS NOT NULL"));
+    }
+
+    #[test]
+    fn soft_delete_with_conditions() {
+        let (sql, params) = QueryBuilder::<()>::new("posts")
+            .with_soft_delete("deleted_at")
+            .where_eq("author_id", 42i64)
+            .to_sql();
+        assert!(sql.contains("WHERE author_id = $1 AND deleted_at IS NULL"));
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn restore_sql() {
+        let (sql, params) = QueryBuilder::<()>::new("posts")
+            .with_soft_delete("deleted_at")
+            .where_eq("id", 1i64)
+            .push_update_column("deleted_at", SqlValue::Null)
+            .to_restore_sql();
+        assert!(sql.starts_with("UPDATE posts SET deleted_at = $1"));
+        assert!(sql.contains("WHERE id = $2"));
+        assert_eq!(params.len(), 2);
+    }
+
+    #[test]
+    fn force_delete_sql_bypasses_soft_delete() {
+        let (sql, params) = QueryBuilder::<()>::new("posts")
+            .with_soft_delete("deleted_at")
+            .where_eq("id", 1i64)
+            .to_force_delete_sql();
+        assert!(sql.starts_with("DELETE FROM posts"));
+        assert!(sql.contains("WHERE id = $1"));
+        assert!(!sql.contains("deleted_at"));
+        assert_eq!(params.len(), 1);
+    }
+
+    #[test]
+    fn soft_delete_count_sql() {
+        let (sql, _) = QueryBuilder::<()>::new("posts")
+            .with_soft_delete("deleted_at")
+            .to_count_sql();
+        assert!(sql.starts_with("SELECT COUNT(*) FROM posts"));
+        assert!(sql.contains("WHERE deleted_at IS NULL"));
     }
 }

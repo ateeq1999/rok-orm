@@ -19,8 +19,21 @@ pub trait Model: Sized {
         false
     }
 
+    fn created_at_column() -> Option<&'static str> {
+        None
+    }
+
+    fn updated_at_column() -> Option<&'static str> {
+        None
+    }
+
     fn query() -> QueryBuilder<Self> {
-        QueryBuilder::new(Self::table_name())
+        let builder = QueryBuilder::new(Self::table_name());
+        if let Some(col) = Self::soft_delete_column() {
+            builder.with_soft_delete(col)
+        } else {
+            builder
+        }
     }
 
     fn find(id: impl Into<crate::condition::SqlValue>) -> QueryBuilder<Self> {

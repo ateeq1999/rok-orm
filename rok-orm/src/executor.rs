@@ -149,3 +149,108 @@ where
         .next()
         .ok_or(sqlx::Error::RowNotFound)
 }
+
+/// Restore soft-deleted rows by setting the soft_delete_column to NULL.
+///
+/// ```rust,ignore
+/// use rok_orm::PgModel;
+///
+/// let restored = User::restore(&pool, 42i64).await?;
+/// ```
+pub async fn restore<T>(pool: &PgPool, builder: QueryBuilder<T>) -> Result<u64, sqlx::Error>
+where
+    T: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+{
+    if let Some(col) = T::soft_delete_column() {
+        let mut updated_builder = builder.with_trashed();
+        updated_builder.push_update_column(col, SqlValue::Null);
+        let (sql, params) = updated_builder.to_restore_sql();
+        execute_raw(pool, &sql, params).await
+    } else {
+        Err(sqlx::Error::Protocol(
+            "restore() called on model without soft_delete_column".into(),
+        ))
+    }
+}
+
+/// Permanently delete rows, bypassing soft delete filters.
+///
+/// ```rust,ignore
+/// use rok_orm::PgModel;
+///
+/// let deleted = User::force_delete(&pool, 42i64).await?;
+/// ```
+pub async fn force_delete<T>(
+    pool: &PgPool,
+    builder: QueryBuilder<T>,
+) -> Result<u64, sqlx::Error> {
+    let (sql, params) = builder.to_force_delete_sql();
+    execute_raw(pool, &sql, params).await
+}
+
+pub async fn aggregate<T>(
+    pool: &PgPool,
+    builder: QueryBuilder<T>,
+    func: &str,
+    column: &str,
+) -> Result<Option<f64>, sqlx::Error> {
+    let (sql, params) = builder.aggregate_sql(func, column);
+    let row = sqlx_pg::build_query(&sql, params).fetch_optional(pool).await?;
+    match row {
+        Some(r) => {
+            use sqlx::Row;
+            Ok(r.try_get::<Option<f64>, _>(0)?)
+        }
+        None => Ok(None),
+    }
+}
+
+pub async fn upsert<T>(
+    pool: &PgPool,
+    table: &str,
+    data: &[(&str, SqlValue)],
+    conflict_column: &str,
+    update_columns: &[&str],
+) -> Result<u64, sqlx::Error> {
+    let (sql, params) = QueryBuilder::<T>::upsert_sql(table, data, conflict_column, update_columns);
+    execute_raw(pool, &sql, params).await
+}
+
+pub async fn upsert_returning<T>(
+    pool: &PgPool,
+    table: &str,
+    data: &[(&str, SqlValue)],
+    conflict_column: &str,
+    update_columns: &[&str],
+) -> Result<T, sqlx::Error>
+where
+    T: Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
+{
+    let (sql, params) = QueryBuilder::<T>::upsert_sql(table, data, conflict_column, update_columns);
+    let full_sql = format!("{sql} RETURNING *");
+    sqlx_pg::fetch_all_as::<T>(pool, &full_sql, params)
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(sqlx::Error::RowNotFound)
+}
+
+pub async fn delete_in<T>(
+    pool: &PgPool,
+    column: &str,
+    values: Vec<SqlValue>,
+) -> Result<u64, sqlx::Error> {
+    if values.is_empty() {
+        return Ok(0);
+    }
+    let (sql, params) = QueryBuilder::<T>::new(table_name::<T>()).to_delete_in_sql_with_dialect(
+        super::Dialect::Postgres,
+        column,
+        &values,
+    );
+    execute_raw(pool, &sql, params).await
+}
+
+fn table_name<T: Model>() -> &'static str {
+    T::table_name()
+}

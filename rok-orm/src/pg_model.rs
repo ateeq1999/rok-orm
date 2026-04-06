@@ -26,6 +26,7 @@
 use std::fmt;
 use std::fmt::Display;
 
+use chrono::Utc;
 use rok_orm_core::{Model, QueryBuilder, SqlValue};
 use sqlx::{postgres::PgRow, PgPool};
 
@@ -141,16 +142,22 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         executor::insert::<Self>(pool, Self::table_name(), data)
     }
 
-    fn update_by_pk(
+    async fn update_by_pk(
         pool: &PgPool,
         id: impl Into<SqlValue> + Send,
         data: &[(&str, SqlValue)],
-    ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
+    ) -> Result<u64, sqlx::Error>
     where
         Self: Sized,
     {
+        let mut data_with_timestamps = data.to_vec();
+        if Self::timestamps_enabled() {
+            if let Some(col) = Self::updated_at_column() {
+                data_with_timestamps.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
+            }
+        }
         let builder = Self::find(id);
-        executor::update::<Self>(pool, builder, data)
+        executor::update::<Self>(pool, builder, &data_with_timestamps).await
     }
 
     fn delete_by_pk(
@@ -194,14 +201,165 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         executor::bulk_insert::<Self>(pool, Self::table_name(), rows)
     }
 
-    fn create_returning(
+    async fn create_returning(
         pool: &PgPool,
         data: &[(&str, SqlValue)],
-    ) -> impl std::future::Future<Output = Result<Self, sqlx::Error>> + Send
+    ) -> Result<Self, sqlx::Error>
     where
         Self: Sized,
     {
-        executor::insert_returning::<Self>(pool, Self::table_name(), data)
+        let mut data_with_timestamps = data.to_vec();
+        if Self::timestamps_enabled() {
+            if let Some(col) = Self::created_at_column() {
+                data_with_timestamps.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
+            }
+            if let Some(col) = Self::updated_at_column() {
+                data_with_timestamps.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
+            }
+        }
+        executor::insert_returning::<Self>(pool, Self::table_name(), &data_with_timestamps).await
+    }
+
+    fn restore(
+        pool: &PgPool,
+        id: impl Into<SqlValue> + Send,
+    ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
+    where
+        Self: Sized,
+    {
+        executor::restore::<Self>(pool, Self::find(id))
+    }
+
+    fn restore_where(
+        pool: &PgPool,
+        builder: QueryBuilder<Self>,
+    ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
+    where
+        Self: Sized,
+    {
+        executor::restore::<Self>(pool, builder)
+    }
+
+    fn force_delete(
+        pool: &PgPool,
+        id: impl Into<SqlValue> + Send,
+    ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
+    where
+        Self: Sized,
+    {
+        executor::force_delete(pool, Self::find(id))
+    }
+
+    fn force_delete_where(
+        pool: &PgPool,
+        builder: QueryBuilder<Self>,
+    ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
+    where
+        Self: Sized,
+    {
+        executor::force_delete(pool, builder)
+    }
+
+    async fn paginate(
+        pool: &PgPool,
+        page: i64,
+        per_page: i64,
+    ) -> Result<crate::pagination::Page<Self>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        let total = executor::count(pool, Self::query()).await?;
+        let data = executor::fetch_all(pool, Self::query().paginate(page, per_page)).await?;
+        Ok(crate::pagination::Page::new(data, total, per_page, page))
+    }
+
+    async fn paginate_where(
+        pool: &PgPool,
+        builder: QueryBuilder<Self>,
+        page: i64,
+        per_page: i64,
+    ) -> Result<crate::pagination::Page<Self>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        let total = executor::count(pool, builder.clone()).await?;
+        let data = executor::fetch_all(pool, builder.paginate(page, per_page)).await?;
+        Ok(crate::pagination::Page::new(data, total, per_page, page))
+    }
+
+    async fn sum(
+        pool: &PgPool,
+        column: &str,
+    ) -> Result<Option<f64>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::aggregate::<Self>(pool, Self::query(), "SUM", column).await
+    }
+
+    async fn avg(
+        pool: &PgPool,
+        column: &str,
+    ) -> Result<Option<f64>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::aggregate::<Self>(pool, Self::query(), "AVG", column).await
+    }
+
+    async fn min(
+        pool: &PgPool,
+        column: &str,
+    ) -> Result<Option<f64>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::aggregate::<Self>(pool, Self::query(), "MIN", column).await
+    }
+
+    async fn max(
+        pool: &PgPool,
+        column: &str,
+    ) -> Result<Option<f64>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::aggregate::<Self>(pool, Self::query(), "MAX", column).await
+    }
+
+    async fn upsert(
+        pool: &PgPool,
+        data: &[(&str, SqlValue)],
+        conflict_column: &str,
+        update_columns: &[&str],
+    ) -> Result<u64, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::upsert::<Self>(pool, Self::table_name(), data, conflict_column, update_columns).await
+    }
+
+    async fn upsert_returning(
+        pool: &PgPool,
+        data: &[(&str, SqlValue)],
+        conflict_column: &str,
+        update_columns: &[&str],
+    ) -> Result<Self, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::upsert_returning::<Self>(pool, Self::table_name(), data, conflict_column, update_columns).await
+    }
+
+    async fn delete_in(
+        pool: &PgPool,
+        column: &str,
+        values: Vec<SqlValue>,
+    ) -> Result<u64, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::delete_in::<Self>(pool, column, values).await
     }
 }
 

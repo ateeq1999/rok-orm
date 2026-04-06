@@ -150,11 +150,27 @@ fn expand_model(input: DeriveInput) -> syn::Result<TokenStream> {
             fn timestamps_enabled() -> bool {
                 true
             }
+
+            fn created_at_column() -> Option<&'static str> {
+                Some("created_at")
+            }
+
+            fn updated_at_column() -> Option<&'static str> {
+                Some("updated_at")
+            }
         }
     } else {
         quote! {
             fn timestamps_enabled() -> bool {
                 false
+            }
+
+            fn created_at_column() -> Option<&'static str> {
+                None
+            }
+
+            fn updated_at_column() -> Option<&'static str> {
+                None
             }
         }
     };
