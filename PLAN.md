@@ -892,4 +892,4 @@ rok-orm-core = { features = ["sqlx-sqlite"] }
 |---------|------|---------|
 | 0.1.0 | 2024 | Initial release with QueryBuilder |
 | 0.2.0 | 2026 | Added soft_delete, timestamps, relations, find_or_404, Eloquent-style API, model hooks, belongs_to_many |
-| 0.3.0 | 2026 | Full soft delete implementation (auto-filtering, restore, force_delete), auto timestamps (created_at/updated_at), eager loading (.with()), pagination (Page<T>), aggregation methods (sum/avg/min/max), upsert (ON CONFLICT), batch delete_in() |
+| 0.3.0 | 2026 | Full soft delete implementation (auto-filtering, restore, force_delete), auto timestamps (created_at/updated_at), eager loading (.with()), pagination (Page<T>), aggregation methods (sum/avg/min/max), upsert (ON CONFLICT), batch delete_in(), relation chaining, lazy loading, exists/pluck/update_all, query scopes, OrmError, logging/observability |
