@@ -183,6 +183,23 @@ For any new SQL clause, verify correctness on all three dialects:
 | JSON extract | `->>` | `json_extract` | `JSON_VALUE` |
 | Full-text | `@@` tsvector | FTS5 | MATCH AGAINST |
 
+### File Size Rule
+
+> **Hard limit: no `.rs` source file may exceed 300 lines.**
+
+When a file reaches this limit, split it into focused sub-modules before committing:
+
+| Too large | Split into |
+|-----------|-----------|
+| `query.rs` (builder + SQL gen) | `query/builder.rs` + `query/sql_gen.rs` |
+| `pg_model.rs` (CRUD + aggregates) | `pg_model/crud.rs` + `pg_model/aggregates.rs` |
+| `relations.rs` (all types) | `relations/has_many.rs`, `relations/has_one.rs`, `relations/belongs_to.rs` |
+| `proc-macro/lib.rs` | `derive_model.rs`, `derive_relations.rs`, `query_macro.rs` |
+
+Each sub-module must have a single clear responsibility. `mod.rs` files only re-export — no logic.
+
+---
+
 ### Commit Style
 ```
 feat(phase-7): add ManyToMany pivot attach/detach/sync

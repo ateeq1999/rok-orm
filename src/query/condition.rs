@@ -136,7 +136,10 @@ pub enum Condition {
     NotIn(String, Vec<SqlValue>),
     Between(String, SqlValue, SqlValue),
     NotBetween(String, SqlValue, SqlValue),
+    /// Raw SQL fragment (no parameters).
     Raw(String),
+    /// Raw SQL fragment with bound parameters.
+    RawExpr(String, Vec<SqlValue>),
 }
 
 impl Condition {
@@ -195,6 +198,15 @@ impl Condition {
                 vec![lo.clone(), hi.clone()],
             ),
             Self::Raw(sql) => (sql.clone(), vec![]),
+            Self::RawExpr(sql, params) => {
+                // Rewrite $1..$N → $offset..$offset+N for PostgreSQL
+                let mut rewritten = sql.clone();
+                let n = params.len();
+                for i in (1..=n).rev() {
+                    rewritten = rewritten.replace(&format!("${i}"), &format!("${}", offset + i - 1));
+                }
+                (rewritten, params.clone())
+            }
         }
     }
 
@@ -233,6 +245,7 @@ impl Condition {
                 vec![lo.clone(), hi.clone()],
             ),
             Self::Raw(sql) => (sql.clone(), vec![]),
+            Self::RawExpr(sql, params) => (sql.clone(), params.clone()),
         }
     }
 
@@ -260,6 +273,7 @@ impl Condition {
             Self::Between(col, lo, hi) => format!("{col} BETWEEN {lo} AND {hi}"),
             Self::NotBetween(col, lo, hi) => format!("{col} NOT BETWEEN {lo} AND {hi}"),
             Self::Raw(sql) => sql.clone(),
+            Self::RawExpr(sql, _) => sql.clone(),
         }
     }
 }

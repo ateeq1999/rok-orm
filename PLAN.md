@@ -28,6 +28,14 @@
 
 ---
 
+## Code File Size Rule
+
+> **No source file (`.rs`) may exceed 300 lines.**
+
+If a file grows beyond 300 lines it must be split into focused sub-modules before the PR is merged. Each sub-module should own one clear responsibility (e.g. SQL generation, executor glue, a single relation type). This rule applies to all crates in the workspace including `proc-macro/`.
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
