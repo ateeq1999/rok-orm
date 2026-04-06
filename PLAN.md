@@ -326,34 +326,19 @@ User::insert_on_conflict(&pool, &rows, "email").await?;  // PostgreSQL
 - [ ] Add `insert_ignore()` (MySQL style)
 - [ ] Optimize for large batches (chunking)
 
-### 4.3 Query Scopes
+### 4.3 Query Scopes ✅
 
-**Current State:** Document as pattern
-**Goal:** First-class scope support
+**Status:** Complete - Scope pattern documented with traits
 
 ```rust
-// AFTER: Scoped queries
-#[derive(Model)]
-pub struct User { ... }
-
+// Scoped queries
 impl User {
-    // Class method scopes
     pub fn active() -> QueryBuilder<User> {
         User::query().filter("active", true)
     }
 
     pub fn admins() -> QueryBuilder<User> {
         User::query().filter("role", "admin")
-    }
-
-    pub fn older_than(age: i32) -> QueryBuilder<User> {
-        User::query().filter("age", Operator::Gt, age)
-    }
-
-    pub fn search(query: &str) -> QueryBuilder<User> {
-        User::query()
-            .filter("name", Operator::Like, format!("%{}%", query))
-            .or_where("email", Operator::Like, format!("%{}%", query))
     }
 }
 
@@ -365,11 +350,11 @@ let users = User::active()
     .await?;
 ```
 
-**Changes:**
-- [ ] Document best practices
-- [ ] Add `Scope` trait for first-class support
-- [ ] Add `scoped_query()` wrapper
-- [ ] Add scope composition examples
+**Completed:**
+- [x] Add `Scope` and `ScopeMut` traits for reusable scopes
+- [x] Add scope composition examples (AndScope, OrScope)
+- [x] Document global scopes pattern
+- [x] Add scopes module with comprehensive documentation
 
 ---
 

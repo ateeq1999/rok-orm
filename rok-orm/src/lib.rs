@@ -42,6 +42,7 @@ pub use hooks::{HookError, HookType, ModelHooks, HookExecutor};
 
 pub mod eager;
 pub mod pagination;
+pub mod scopes;
 pub use pagination::{Page, PaginationOptions};
 
 #[cfg(feature = "postgres")]
