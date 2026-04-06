@@ -72,3 +72,12 @@ pub mod sqlite_model;
 
 #[cfg(feature = "sqlite")]
 pub use sqlite_model::SqliteModel;
+
+#[cfg(feature = "mysql")]
+pub mod mysql_executor;
+
+#[cfg(feature = "mysql")]
+pub mod my_model;
+
+#[cfg(feature = "mysql")]
+pub use my_model::MyModel;

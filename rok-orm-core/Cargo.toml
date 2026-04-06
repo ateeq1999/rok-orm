@@ -19,6 +19,7 @@ sqlx = { workspace = true, optional = true }
 default = []
 sqlx-postgres = ["dep:sqlx", "sqlx/postgres", "sqlx/runtime-tokio-native-tls"]
 sqlx-sqlite  = ["dep:sqlx", "sqlx/sqlite",   "sqlx/runtime-tokio-native-tls"]
+sqlx-mysql   = ["dep:sqlx", "sqlx/mysql",    "sqlx/runtime-tokio-native-tls"]
 
 [dev-dependencies]
 tokio.workspace = true

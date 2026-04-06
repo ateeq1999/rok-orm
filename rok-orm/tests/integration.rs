@@ -671,6 +671,7 @@ fn upsert_sql_generates_on_conflict() {
 #[test]
 fn upsert_do_nothing_sql() {
     let (sql, params) = QueryBuilder::<()>::upsert_do_nothing_sql(
+        Dialect::Postgres,
         "users",
         &[("email", "test@example.com".into())],
         "email",

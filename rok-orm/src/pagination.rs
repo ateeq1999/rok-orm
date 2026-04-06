@@ -83,7 +83,7 @@ impl PaginationOptions {
     pub fn new(page: i64, per_page: i64) -> Self {
         Self {
             page: page.max(1),
-            per_page: per_page.max(1).min(100),
+            per_page: per_page.clamp(1, 100),
         }
     }
 

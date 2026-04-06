@@ -12,12 +12,14 @@ use crate::condition::{Condition, JoinOp, OrderDir, SqlValue};
 /// SQL placeholder dialect.
 ///
 /// - [`Dialect::Postgres`] — numbered placeholders (`$1`, `$2`, …)
-/// - [`Dialect::Sqlite`]   — anonymous placeholders (`?`, `?`, …)
+/// - [`Dialect::Sqlite | Dialect::Mysql`]  — anonymous placeholders (`?`, `?`, …)
+/// - [`Dialect::Mysql`]   — anonymous placeholders (`?`, `?`, …)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Dialect {
     #[default]
     Postgres,
     Sqlite,
+    Mysql,
 }
 
 // ── Join ─────────────────────────────────────────────────────────────────────
@@ -487,7 +489,7 @@ impl<T> QueryBuilder<T> {
     ///
     /// Returns `(sql, params)` — params are ordered to match `$1`, `$2`, …
     ///
-    /// For SQLite use [`to_sql_with_dialect(Dialect::Sqlite)`](Self::to_sql_with_dialect).
+    /// For SQLite use [`to_sql_with_dialect(Dialect::Sqlite | Dialect::Mysql)`](Self::to_sql_with_dialect).
     pub fn to_sql(&self) -> (String, Vec<SqlValue>) {
         self.to_sql_with_dialect(Dialect::Postgres)
     }
@@ -495,7 +497,7 @@ impl<T> QueryBuilder<T> {
     /// Build a parameterized `SELECT` statement for the given [`Dialect`].
     ///
     /// - [`Dialect::Postgres`] emits `$1, $2, …`
-    /// - [`Dialect::Sqlite`]   emits `?, ?, …`
+    /// - [`Dialect::Sqlite | Dialect::Mysql`]   emits `?, ?, …`
     pub fn to_sql_with_dialect(&self, dialect: Dialect) -> (String, Vec<SqlValue>) {
         let cols = self
             .select_cols
@@ -575,7 +577,7 @@ impl<T> QueryBuilder<T> {
                 params.push(val.clone());
                 match dialect {
                     Dialect::Postgres => format!("{col} = ${}", i + 1),
-                    Dialect::Sqlite => format!("{col} = ?"),
+                    Dialect::Sqlite | Dialect::Mysql => format!("{col} = ?"),
                 }
             })
             .collect();
@@ -601,7 +603,7 @@ impl<T> QueryBuilder<T> {
         let cols: Vec<&str> = data.iter().map(|(c, _)| *c).collect();
         let placeholders: Vec<String> = match dialect {
             Dialect::Postgres => (1..=data.len()).map(|i| format!("${i}")).collect(),
-            Dialect::Sqlite => (0..data.len()).map(|_| "?".to_string()).collect(),
+            Dialect::Sqlite | Dialect::Mysql => (0..data.len()).map(|_| "?".to_string()).collect(),
         };
         let params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
         (
@@ -702,7 +704,7 @@ impl<T> QueryBuilder<T> {
             .iter()
             .enumerate()
             .map(|(i, col)| {
-                let param_idx = params.len() + i + 1;
+                let _param_idx = params.len() + i + 1;
                 format!("{col} = EXCLUDED.{col}")
             })
             .collect();
@@ -727,13 +729,13 @@ impl<T> QueryBuilder<T> {
         let cols: Vec<&str> = data.iter().map(|(c, _)| *c).collect();
         let placeholders: Vec<String> = match dialect {
             Dialect::Postgres => (1..=data.len()).map(|i| format!("${i}")).collect(),
-            Dialect::Sqlite => (0..data.len()).map(|_| "?".to_string()).collect(),
+            Dialect::Sqlite | Dialect::Mysql => (0..data.len()).map(|_| "?".to_string()).collect(),
         };
         let params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
 
         let update_clauses: Vec<String> = update_columns
             .iter()
-            .map(|col| format!("{col} = EXCLUDED.{col}"))
+            .map(|col| format!("{col} = VALUES({col})"))
             .collect();
 
         let sql = match dialect {
@@ -749,25 +751,70 @@ impl<T> QueryBuilder<T> {
                 placeholders.join(", "),
                 update_clauses.join(", ")
             ),
+            Dialect::Mysql => format!(
+                "INSERT INTO {table} ({}) VALUES ({}) ON DUPLICATE KEY UPDATE {}",
+                cols.join(", "),
+                placeholders.join(", "),
+                update_clauses.join(", ")
+            ),
         };
 
         (sql, params)
     }
 
     pub fn upsert_do_nothing_sql(
+        dialect: Dialect,
         table: &str,
         data: &[(&str, SqlValue)],
         conflict_column: &str,
     ) -> (String, Vec<SqlValue>) {
         let cols: Vec<&str> = data.iter().map(|(c, _)| *c).collect();
-        let placeholders: Vec<String> = (1..=data.len()).map(|i| format!("${i}")).collect();
+        let placeholders: Vec<String> = match dialect {
+            Dialect::Postgres => (1..=data.len()).map(|i| format!("${i}")).collect(),
+            Dialect::Sqlite | Dialect::Mysql => (0..data.len()).map(|_| "?".to_string()).collect(),
+        };
         let params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
 
-        let sql = format!(
-            "INSERT INTO {table} ({}) VALUES ({}) ON CONFLICT ({conflict_column}) DO NOTHING",
-            cols.join(", "),
-            placeholders.join(", ")
-        );
+        let sql = match dialect {
+            Dialect::Mysql => format!(
+                "INSERT IGNORE INTO {table} ({}) VALUES ({})",
+                cols.join(", "),
+                placeholders.join(", ")
+            ),
+            _ => format!(
+                "INSERT INTO {table} ({}) VALUES ({}) ON CONFLICT ({conflict_column}) DO NOTHING",
+                cols.join(", "),
+                placeholders.join(", ")
+            ),
+        };
+
+        (sql, params)
+    }
+
+    pub fn insert_ignore_sql(
+        dialect: Dialect,
+        table: &str,
+        data: &[(&str, SqlValue)],
+    ) -> (String, Vec<SqlValue>) {
+        let cols: Vec<&str> = data.iter().map(|(c, _)| *c).collect();
+        let placeholders: Vec<String> = match dialect {
+            Dialect::Postgres => (1..=data.len()).map(|i| format!("${i}")).collect(),
+            Dialect::Sqlite | Dialect::Mysql => (0..data.len()).map(|_| "?".to_string()).collect(),
+        };
+        let params: Vec<SqlValue> = data.iter().map(|(_, v)| v.clone()).collect();
+
+        let sql = match dialect {
+            Dialect::Mysql => format!(
+                "INSERT IGNORE INTO {table} ({}) VALUES ({})",
+                cols.join(", "),
+                placeholders.join(", ")
+            ),
+            _ => format!(
+                "INSERT INTO {table} ({}) VALUES ({})",
+                cols.join(", "),
+                placeholders.join(", ")
+            ),
+        };
 
         (sql, params)
     }
@@ -782,10 +829,12 @@ impl<T> QueryBuilder<T> {
         column: &str,
         values: &[SqlValue],
     ) -> (String, Vec<SqlValue>) {
-        let mut params = values.to_vec();
+        let params = values.to_vec();
         let placeholders: Vec<String> = match dialect {
             Dialect::Postgres => (1..=values.len()).map(|i| format!("${}", i)).collect(),
-            Dialect::Sqlite => (0..values.len()).map(|_| "?".to_string()).collect(),
+            Dialect::Sqlite | Dialect::Mysql => {
+                (0..values.len()).map(|_| "?".to_string()).collect()
+            }
         };
 
         let sql = format!(
@@ -808,7 +857,7 @@ impl<T> QueryBuilder<T> {
         let mut where_clauses: Vec<String> = Vec::new();
         let mut param_offset = 0;
 
-        for (id, column, value) in updates {
+        for (id, _column, value) in updates {
             params.push(value.clone());
             param_offset += 1;
             set_clauses.push(format!("WHEN ${} THEN ${}", param_offset, param_offset));
@@ -870,7 +919,7 @@ impl<T> QueryBuilder<T> {
                 params.push(val.clone());
                 match dialect {
                     Dialect::Postgres => format!("{col} = ${}", i + 1),
-                    Dialect::Sqlite => format!("{col} = ?"),
+                    Dialect::Sqlite | Dialect::Mysql => format!("{col} = ?"),
                 }
             })
             .collect();
@@ -979,7 +1028,7 @@ fn build_where_from_dialect(
     for (idx, (op, cond)) in conditions.iter().enumerate() {
         let (frag, ps) = match dialect {
             Dialect::Postgres => cond.to_param_sql(params.len() + 1),
-            Dialect::Sqlite => cond.to_param_sql_sqlite(),
+            Dialect::Sqlite | Dialect::Mysql => cond.to_param_sql_sqlite(),
         };
         params.extend(ps);
         if idx > 0 {

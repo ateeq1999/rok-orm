@@ -14,6 +14,7 @@ categories = ["database"]
 default = []
 postgres = ["dep:sqlx", "dep:tokio", "rok-orm-core/sqlx-postgres"]
 sqlite = ["dep:sqlx", "dep:tokio", "rok-orm-core/sqlx-sqlite"]
+mysql = ["dep:sqlx", "dep:tokio", "rok-orm-core/sqlx-mysql"]
 
 [dependencies]
 rok-orm-core = { path = "../rok-orm-core", version = "0.2.0" }
