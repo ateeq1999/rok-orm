@@ -38,7 +38,7 @@ pub mod belongs_to_many;
 pub use belongs_to_many::BelongsToMany;
 
 pub mod hooks;
-pub use hooks::{HookError, HookManager, HookType, ModelHooks, HookExecutor};
+pub use hooks::{HookError, HookType, ModelHooks, HookExecutor};
 
 #[cfg(feature = "postgres")]
 pub mod executor;

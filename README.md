@@ -34,9 +34,10 @@ let user = User::find_by_pk(&pool, 1).await?;
 - **Async Execution** — Built on sqlx for high-performance async database operations
 - **Multi-Database** — Support for PostgreSQL and SQLite with dialect-aware SQL generation
 - **Derive Macros** — `#[derive(Model)]` auto-generates table names, columns, and metadata
-- **Relationships** — Define `has_many`, `has_one`, `belongs_to` relationships
+- **Relationships** — Define `has_many`, `has_one`, `belongs_to`, `belongs_to_many` relationships
 - **Soft Deletes** — Built-in support for soft delete patterns
 - **Auto Timestamps** — Automatic `created_at`/`updated_at` management
+- **Model Hooks** — Lifecycle events (`before_create`, `after_create`, etc.)
 - **Transactions** — First-class transaction support with the `Tx` wrapper
 
 ## Crates

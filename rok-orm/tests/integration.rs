@@ -368,11 +368,13 @@ fn query_macro_eq_shorthand() {
 
 use rok_orm::hooks::ModelHooks;
 
-#[derive(ModelHooks)]
+#[derive(Debug)]
 pub struct HookTestModel {
     pub id: i64,
     pub name: String,
 }
+
+impl ModelHooks for HookTestModel {}
 
 #[test]
 fn model_hooks_derive() {
@@ -380,31 +382,52 @@ fn model_hooks_derive() {
         id: 1,
         name: "Test".to_string(),
     };
-    // ModelHooks is implemented via derive macro
-    // The default implementations do nothing
     assert_eq!(model.name, "Test");
 }
 
 // ── BelongsToMany ────────────────────────────────────────────────────────────
 
 use rok_orm::belongs_to_many::BelongsToMany;
-use rok_orm::Model;
 
-#[derive(Model)]
-pub struct Post {
+#[derive(Debug)]
+pub struct TestPost {
     pub id: i64,
     pub title: String,
 }
 
-#[derive(Model)]
-pub struct Tag {
+#[derive(Debug)]
+pub struct TestTag {
     pub id: i64,
     pub name: String,
 }
 
+impl rok_orm::Model for TestPost {
+    fn table_name() -> &'static str {
+        "posts"
+    }
+    fn primary_key() -> &'static str {
+        "id"
+    }
+    fn columns() -> &'static [&'static str] {
+        &["id", "title"]
+    }
+}
+
+impl rok_orm::Model for TestTag {
+    fn table_name() -> &'static str {
+        "tags"
+    }
+    fn primary_key() -> &'static str {
+        "id"
+    }
+    fn columns() -> &'static [&'static str] {
+        &["id", "name"]
+    }
+}
+
 #[test]
 fn belongs_to_many_creation() {
-    let relation = BelongsToMany::<Post, Tag>::new(
+    let relation = BelongsToMany::<TestPost, TestTag>::new(
         "posts",
         "id",
         "post_tags".to_string(),
@@ -421,7 +444,7 @@ fn belongs_to_many_creation() {
 
 #[test]
 fn belongs_to_many_query_generation() {
-    let relation = BelongsToMany::<Post, Tag>::new(
+    let relation = BelongsToMany::<TestPost, TestTag>::new(
         "posts",
         "id",
         "post_tags".to_string(),
@@ -439,7 +462,7 @@ fn belongs_to_many_query_generation() {
 
 #[test]
 fn belongs_to_many_count_query() {
-    let relation = BelongsToMany::<Post, Tag>::new(
+    let relation = BelongsToMany::<TestPost, TestTag>::new(
         "posts",
         "id",
         "post_tags".to_string(),

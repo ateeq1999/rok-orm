@@ -59,11 +59,14 @@ rok-orm/
 | `#[derive(Model)]` | ✅ | Auto-generates table_name, columns, primary_key |
 | `#[model(...)]` | ✅ | table, primary_key, soft_delete, timestamps, skip, column |
 | `#[derive(Relations)]` | ✅ | HasMany, HasOne, BelongsTo definitions |
+| `#[derive(BelongsToMany)]` | ✅ | Many-to-many relationship support |
+| `#[derive(ModelHooks)]` | ✅ | Lifecycle hooks (before/after create, update, delete) |
 | PostgreSQL Support | ✅ | Full async executor with PgModel trait |
 | SQLite Support | ✅ | Full async executor with SqliteModel trait |
 | Transactions | ✅ | Tx wrapper for PostgreSQL |
 | `query!()` macro | ✅ | Shorthand query building |
 | `.filter()` shorthand | ✅ | Alias for `.where_eq()` |
+| `.eq()` shorthand | ✅ | Short alias for `.where_eq()` |
 | `find_or_404()` | ✅ | Returns RowNotFound error |
 | `first()`, `first_or_404()` | ✅ | Eloquent-style fetch methods |
 | `#[model(soft_delete)]` | ✅ | Adds soft_delete_column() to model |

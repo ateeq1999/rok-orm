@@ -395,11 +395,15 @@ pub fn query(input: TokenStream) -> TokenStream {
         let args = &clause.args;
 
         let call = match (name_str.as_str(), args.len()) {
-            ("where", 2) | ("filter", 2) | ("eq", 2) => {
+            ("where", 2) | ("filter", 2) => {
                 let (c, v) = (&args[0], &args[1]);
                 quote! { .filter(#c, #v) }
             }
-            ("where_eq", 2) | ("eq", 2) => {
+            ("eq", 2) => {
+                let (c, v) = (&args[0], &args[1]);
+                quote! { .eq(#c, #v) }
+            }
+            ("where_eq", 2) => {
                 let (c, v) = (&args[0], &args[1]);
                 quote! { .eq(#c, #v) }
             }
