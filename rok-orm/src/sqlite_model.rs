@@ -347,6 +347,62 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
     {
         sqlite_executor::delete_in::<Self>(pool, column, values).await
     }
+
+    async fn exists(pool: &SqlitePool) -> Result<bool, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        sqlite_executor::exists(pool, Self::query()).await
+    }
+
+    async fn exists_where(pool: &SqlitePool, builder: QueryBuilder<Self>) -> Result<bool, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        sqlite_executor::exists(pool, builder).await
+    }
+
+    async fn pluck(
+        pool: &SqlitePool,
+        column: &str,
+    ) -> Result<Vec<SqlValue>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        sqlite_executor::pluck(pool, Self::query(), column).await
+    }
+
+    async fn pluck_where(
+        pool: &SqlitePool,
+        builder: QueryBuilder<Self>,
+        column: &str,
+    ) -> Result<Vec<SqlValue>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        sqlite_executor::pluck(pool, builder, column).await
+    }
+
+    async fn update_all(
+        pool: &SqlitePool,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        sqlite_executor::update_all(pool, Self::query(), data).await
+    }
+
+    async fn update_all_where(
+        pool: &SqlitePool,
+        builder: QueryBuilder<Self>,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        sqlite_executor::update_all(pool, builder, data).await
+    }
 }
 
 impl<T> SqliteModel for T where T: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unpin {}

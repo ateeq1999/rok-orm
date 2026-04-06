@@ -253,28 +253,26 @@ let oldest: Option<i32> = User::max("age", &pool).await?;
 - [x] Add aggregate methods to PgModel and SqliteModel
 - [x] Add tests
 
-### 3.3 Query Builder Enhancements
+### 3.3 Query Builder Enhancements ✅
 
-**Current State:** Basic conditions supported
-**Goal:** Complete WHERE clause coverage
+**Status:** Complete - Additional query methods added
 
 ```rust
-// AFTER: More intuitive API
-User::query()
-    .filter("email", "admin@example.com")
-    .filter("active", true)
-    .where_in("role", vec!["admin", "moderator"])
-    .where_between("age", 18i64, 65i64)
-    .order_by("name")
-    .paginate(1, 20)
-    .get(&pool)
-    .await?;
+// Check if records exist
+let exists = User::exists(&pool).await?;
+
+// Pluck single column values
+let emails: Vec<SqlValue> = User::pluck(&pool, "email").await?;
+
+// Mass update
+let updated = User::update_all(&pool, &[("status", "inactive".into())]).await?;
 ```
 
-**Changes:**
-- [ ] Add `exists()` method (returns bool)
-- [ ] Add `pluck()` for single column retrieval
-- [ ] Add `update_all()` for mass updates
+**Completed:**
+- [x] Add `exists()` and `exists_where()` methods
+- [x] Add `pluck()` and `pluck_where()` for single column retrieval
+- [x] Add `update_all()` and `update_all_where()` for mass updates
+- [x] Add tests
 
 ---
 

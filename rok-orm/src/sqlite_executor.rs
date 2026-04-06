@@ -193,3 +193,37 @@ where
     );
     execute_raw(pool, &sql, params).await
 }
+
+pub async fn exists<T>(
+    pool: &SqlitePool,
+    builder: QueryBuilder<T>,
+) -> Result<bool, sqlx::Error> {
+    let (sql, params) = builder.exists_sql_with_dialect(Dialect::Sqlite);
+    let row = sqlx_sqlite::build_query(&sql, params).fetch_one(pool).await?;
+    use sqlx::Row;
+    row.try_get::<bool, _>(0)
+}
+
+pub async fn pluck<T>(
+    pool: &SqlitePool,
+    builder: QueryBuilder<T>,
+    column: &str,
+) -> Result<Vec<SqlValue>, sqlx::Error> {
+    let (sql, params) = builder.pluck_sql_with_dialect(Dialect::Sqlite, column);
+    let rows = sqlx_sqlite::build_query(&sql, params).fetch_all(pool).await?;
+    use sqlx::Row;
+    let mut values = Vec::new();
+    for row in rows {
+        values.push(row.try_get::<SqlValue, _>(0)?);
+    }
+    Ok(values)
+}
+
+pub async fn update_all<T>(
+    pool: &SqlitePool,
+    builder: QueryBuilder<T>,
+    data: &[(&str, SqlValue)],
+) -> Result<u64, sqlx::Error> {
+    let (sql, params) = builder.to_update_sql_with_dialect(Dialect::Sqlite, data);
+    execute_raw(pool, &sql, params).await
+}

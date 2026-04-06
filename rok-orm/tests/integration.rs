@@ -684,17 +684,61 @@ fn upsert_do_nothing_sql() {
 // ── batch operations ────────────────────────────────────────────────────────────────
 
 #[test]
-fn delete_in_sql_generates_in_clause() {
+fn delete_in_sql_sqlite_dialect() {
     let builder = QueryBuilder::<()>::new("users");
-    let (sql, params) = builder.to_delete_in_sql_with_dialect(
-        Dialect::Postgres,
-        "id",
-        &[1i64.into(), 2i64.into(), 3i64.into()],
-    );
+    let (sql, params) =
+        builder.to_delete_in_sql_with_dialect(Dialect::Sqlite, "id", &[1i64.into(), 2i64.into()]);
 
-    assert!(sql.starts_with("DELETE FROM users"));
-    assert!(sql.contains("WHERE id IN ($1, $2, $3)"));
-    assert_eq!(params.len(), 3);
+    assert!(sql.contains("WHERE id IN (?, ?)"));
+    assert_eq!(params.len(), 2);
+}
+
+// ── exists and pluck ───────────────────────────────────────────────────────────
+
+#[test]
+fn exists_sql_generates_subquery() {
+    let (sql, params) = User::query().filter("active", true).exists_sql();
+
+    assert!(sql.contains("SELECT EXISTS(SELECT 1 FROM users"));
+    assert!(sql.contains("WHERE active = $1"));
+    assert_eq!(params.len(), 1);
+}
+
+#[test]
+fn exists_sql_simple() {
+    let (sql, params) = User::query().exists_sql();
+
+    assert!(sql.contains("SELECT EXISTS(SELECT 1 FROM users"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn pluck_sql_generates_single_column() {
+    let (sql, params) = User::query().pluck_sql("email");
+
+    assert!(sql.contains("SELECT email FROM users"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn pluck_sql_with_where() {
+    let (sql, params) = User::query().filter("active", true).pluck_sql("email");
+
+    assert!(sql.contains("SELECT email FROM users"));
+    assert!(sql.contains("WHERE active = $1"));
+    assert_eq!(params.len(), 1);
+}
+
+#[test]
+fn pluck_sql_with_limit() {
+    let (sql, _) = User::query()
+        .filter("active", true)
+        .limit(5)
+        .pluck_sql("name");
+
+    assert!(sql.contains("SELECT name FROM users"));
+    assert!(sql.contains("WHERE active = $1"));
+    assert!(sql.contains("LIMIT 5"));
 }
 
 #[test]

@@ -361,6 +361,62 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     {
         executor::delete_in::<Self>(pool, column, values).await
     }
+
+    async fn exists(pool: &PgPool) -> Result<bool, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::exists(pool, Self::query()).await
+    }
+
+    async fn exists_where(pool: &PgPool, builder: QueryBuilder<Self>) -> Result<bool, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::exists(pool, builder).await
+    }
+
+    async fn pluck(
+        pool: &PgPool,
+        column: &str,
+    ) -> Result<Vec<SqlValue>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::pluck(pool, Self::query(), column).await
+    }
+
+    async fn pluck_where(
+        pool: &PgPool,
+        builder: QueryBuilder<Self>,
+        column: &str,
+    ) -> Result<Vec<SqlValue>, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::pluck(pool, builder, column).await
+    }
+
+    async fn update_all(
+        pool: &PgPool,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::update_all(pool, Self::query(), data).await
+    }
+
+    async fn update_all_where(
+        pool: &PgPool,
+        builder: QueryBuilder<Self>,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error>
+    where
+        Self: Sized,
+    {
+        executor::update_all(pool, builder, data).await
+    }
 }
 
 impl<T> PgModel for T where T: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {}

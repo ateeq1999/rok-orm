@@ -254,3 +254,37 @@ pub async fn delete_in<T>(
 fn table_name<T: Model>() -> &'static str {
     T::table_name()
 }
+
+pub async fn exists<T>(
+    pool: &PgPool,
+    builder: QueryBuilder<T>,
+) -> Result<bool, sqlx::Error> {
+    let (sql, params) = builder.exists_sql();
+    let row = sqlx_pg::build_query(&sql, params).fetch_one(pool).await?;
+    use sqlx::Row;
+    row.try_get::<bool, _>(0)
+}
+
+pub async fn pluck<T>(
+    pool: &PgPool,
+    builder: QueryBuilder<T>,
+    column: &str,
+) -> Result<Vec<SqlValue>, sqlx::Error> {
+    let (sql, params) = builder.pluck_sql(column);
+    let rows = sqlx_pg::build_query(&sql, params).fetch_all(pool).await?;
+    use sqlx::Row;
+    let mut values = Vec::new();
+    for row in rows {
+        values.push(row.try_get::<SqlValue, _>(0)?);
+    }
+    Ok(values)
+}
+
+pub async fn update_all<T>(
+    pool: &PgPool,
+    builder: QueryBuilder<T>,
+    data: &[(&str, SqlValue)],
+) -> Result<u64, sqlx::Error> {
+    let (sql, params) = builder.to_update_sql(data);
+    execute_raw(pool, &sql, params).await
+}

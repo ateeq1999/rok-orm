@@ -438,6 +438,49 @@ impl<T> QueryBuilder<T> {
         self.aggregate_sql("MAX", column)
     }
 
+    pub fn exists_sql(&self) -> (String, Vec<SqlValue>) {
+        self.exists_sql_with_dialect(Dialect::Postgres)
+    }
+
+    pub fn exists_sql_with_dialect(&self, dialect: Dialect) -> (String, Vec<SqlValue>) {
+        let mut params: Vec<SqlValue> = Vec::new();
+        let where_clause = self.build_where_with_soft_delete(dialect, &mut params);
+        let joins = self.build_joins();
+
+        let sql = format!(
+            "SELECT EXISTS(SELECT 1 FROM {}{}{})",
+            self.table, joins, where_clause
+        );
+
+        (sql, params)
+    }
+
+    pub fn pluck_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
+        self.pluck_sql_with_dialect(Dialect::Postgres, column)
+    }
+
+    pub fn pluck_sql_with_dialect(
+        &self,
+        dialect: Dialect,
+        column: &str,
+    ) -> (String, Vec<SqlValue>) {
+        let mut params: Vec<SqlValue> = Vec::new();
+        let where_clause = self.build_where_with_soft_delete(dialect, &mut params);
+        let joins = self.build_joins();
+        let order = self.build_order();
+        let limit = self
+            .limit_val
+            .map(|n| format!(" LIMIT {n}"))
+            .unwrap_or_default();
+
+        let sql = format!(
+            "SELECT {} FROM {}{}{}{}{}",
+            column, self.table, joins, where_clause, order, limit
+        );
+
+        (sql, params)
+    }
+
     // ── SQL generation ────────────────────────────────────────────────────
 
     /// Build a parameterized `SELECT` statement (PostgreSQL `$N` placeholders).
