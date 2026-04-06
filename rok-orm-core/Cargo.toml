@@ -1,0 +1,24 @@
+[package]
+name = "rok-orm-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Core traits, query builder, and model abstractions for rok-orm"
+keywords = ["orm", "query-builder", "database", "rok"]
+categories = ["database"]
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+sqlx = { workspace = true, optional = true }
+
+[features]
+default = []
+sqlx-postgres = ["dep:sqlx", "sqlx/postgres", "sqlx/runtime-tokio-native-tls"]
+sqlx-sqlite  = ["dep:sqlx", "sqlx/sqlite",   "sqlx/runtime-tokio-native-tls"]
+
+[dev-dependencies]
+tokio.workspace = true

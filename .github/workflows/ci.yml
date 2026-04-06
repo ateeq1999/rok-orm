@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test-core:
+    name: Test rok-orm-core
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+        working-directory: rok-orm-core
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: rok-orm-core
+
+      - name: Test (no features)
+        run: cargo test
+        working-directory: rok-orm-core
+
+      - name: Test (postgres)
+        run: cargo test --features sqlx-postgres
+        working-directory: rok-orm-core
+
+      - name: Test (sqlite)
+        run: cargo test --features sqlx-sqlite
+        working-directory: rok-orm-core
+
+  test-macros:
+    name: Test rok-orm-macros
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+        working-directory: rok-orm-macros
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: rok-orm-macros
+
+      - name: Test
+        run: cargo test
+        working-directory: rok-orm-macros
+
+  test-orm:
+    name: Test rok-orm
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+        working-directory: rok-orm
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: rok-orm
+
+      - name: Test (no features)
+        run: cargo test
+        working-directory: rok-orm
+
+      - name: Test (postgres)
+        run: cargo test --features postgres -- --nocapture
+        working-directory: rok-orm
+
+      - name: Test (sqlite)
+        run: cargo test --features sqlite -- --nocapture
+        working-directory: rok-orm
+
+  doc:
+    name: Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+        working-directory: rok-orm-core
+
+      - name: Build documentation
+        run: cargo doc --no-deps
+        working-directory: rok-orm
+
+  workspace:
+    name: Workspace check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Check workspace
+        run: |
+          cargo check --workspace
+          cargo metadata --format-version 1 | jq -e '.workspace_members | length > 0'
+
+      - name: Audit dependencies
+        run: cargo audit --workspace || true
+
+  rustsec:
+    name: Security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

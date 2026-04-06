@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = [
+    "rok-orm-core",
+    "rok-orm-macros",
+    "rok-orm",
+]
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["rok-orm contributors"]
+repository = "https://github.com/rok-rs/rok-orm"
+homepage = "https://github.com/rok-rs/rok-orm"
+description = "Eloquent-inspired async ORM for Rust"
+keywords = ["orm", "database", "async", "rust"]
+
+[workspace.dependencies]
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+sqlx = { version = "0.8", default-features = false, features = ["macros"] }
+tokio = { version = "1.0", features = ["full"] }
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+heck = "0.5"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.dev.package."*"]
+opt-level = 0
