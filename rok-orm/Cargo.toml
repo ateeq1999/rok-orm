@@ -17,8 +17,8 @@ sqlite = ["dep:sqlx", "dep:tokio", "rok-orm-core/sqlx-sqlite"]
 mysql = ["dep:sqlx", "dep:tokio", "rok-orm-core/sqlx-mysql"]
 
 [dependencies]
-rok-orm-core = { path = "../rok-orm-core", version = "0.2.0" }
-rok-orm-macros = { path = "../rok-orm-macros", version = "0.2.0" }
+rok-orm-core = { path = "../rok-orm-core", version = "0.3.0" }
+rok-orm-macros = { path = "../rok-orm-macros", version = "0.3.0" }
 sqlx = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 thiserror = { workspace = true }
