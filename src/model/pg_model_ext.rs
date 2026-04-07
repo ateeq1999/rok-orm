@@ -143,6 +143,64 @@ pub trait PgModelExt: PgModel {
     {
         postgres::update_all(pool, builder, data).await
     }
+
+    /// Find the first row matching `conditions`, or create it with `data`.
+    ///
+    /// `conditions` is used both for the WHERE lookup and as part of the INSERT.
+    async fn first_or_create(
+        pool: &PgPool,
+        conditions: &[(&str, SqlValue)],
+        data: &[(&str, SqlValue)],
+    ) -> Result<Self, sqlx::Error>
+    where Self: Sized,
+    {
+        let mut qb = Self::query();
+        for (col, val) in conditions {
+            qb = qb.where_eq(col, val.clone());
+        }
+        if let Some(existing) = postgres::fetch_optional(pool, qb).await? {
+            return Ok(existing);
+        }
+        let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
+        for row in data {
+            if !insert_data.iter().any(|(c, _)| c == &row.0) {
+                insert_data.push(*row);
+            }
+        }
+        postgres::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
+    }
+
+    /// Find the first row matching `conditions`, or INSERT+return a new one using `conditions` + `data`.
+    async fn update_or_create(
+        pool: &PgPool,
+        conditions: &[(&str, SqlValue)],
+        data: &[(&str, SqlValue)],
+    ) -> Result<Self, sqlx::Error>
+    where Self: Sized,
+    {
+        let mut qb = Self::query();
+        for (col, val) in conditions {
+            qb = qb.where_eq(col, val.clone());
+        }
+        if let Some(_existing) = postgres::fetch_optional::<Self>(pool, qb.clone()).await? {
+            postgres::update::<Self>(pool, qb, data).await?;
+            // Re-fetch the updated row
+            let mut refetch = Self::query();
+            for (col, val) in conditions {
+                refetch = refetch.where_eq(col, val.clone());
+            }
+            return postgres::fetch_optional(pool, refetch.limit(1))
+                .await?
+                .ok_or(sqlx::Error::RowNotFound);
+        }
+        let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
+        for row in data {
+            if !insert_data.iter().any(|(c, _)| c == &row.0) {
+                insert_data.push(*row);
+            }
+        }
+        postgres::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
+    }
 }
 
 impl<T> PgModelExt for T where T: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {}

@@ -1,7 +1,7 @@
 # Phase 7: Rich Relationships
 
 > **Target version:** v0.4.0
-> **Status:** 🔜 Planned
+> **Status:** 🚧 In Progress
 > **Inspired by:** Laravel Eloquent, AdonisJS Lucid ORM
 
 ---

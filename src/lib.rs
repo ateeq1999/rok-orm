@@ -55,7 +55,10 @@ pub mod executor;
 // ── Relations ────────────────────────────────────────────────────────────────
 
 pub mod relations;
-pub use relations::{BelongsTo, HasMany, HasOne, Relation, Relations, BelongsToMany};
+pub use relations::{
+    BelongsTo, HasMany, HasManyThrough, HasOne, HasOneThrough,
+    ManyToMany, BelongsToMany, Relation, Relations,
+};
 
 #[cfg(feature = "postgres")]
 pub use relations::eager::{BelongsToEager, HasManyEager, HasOneEager};

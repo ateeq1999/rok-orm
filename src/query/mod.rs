@@ -3,6 +3,7 @@ mod builder;
 mod conditions;
 mod sql_gen;
 mod sql_write;
+mod subquery;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
