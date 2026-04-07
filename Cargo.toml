@@ -22,6 +22,7 @@ thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"], optional = true }
 
 [dev-dependencies]
 
@@ -31,6 +32,7 @@ postgres = ["dep:sqlx", "sqlx/postgres", "sqlx/runtime-tokio-native-tls"]
 sqlite = ["dep:sqlx", "sqlx/sqlite", "sqlx/runtime-tokio-native-tls"]
 mysql = ["dep:sqlx", "sqlx/mysql", "sqlx/runtime-tokio-native-tls", "sqlx/macros"]
 runtime-tokio-native-tls = ["sqlx/runtime-tokio-native-tls"]
+uuid-pk = ["dep:uuid"]
 
 [profile.release]
 lto = true

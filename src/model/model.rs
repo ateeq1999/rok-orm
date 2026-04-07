@@ -68,6 +68,14 @@ pub trait Model: Sized {
         }
     }
 
+    /// Generate a new unique primary key value, or `None` for auto-increment.
+    ///
+    /// Override this in models with UUID or ULID primary keys.
+    /// The executor will inject the returned value into INSERT data when `Some`.
+    fn new_unique_id() -> Option<crate::query::SqlValue> {
+        None
+    }
+
     fn find(id: impl Into<crate::query::SqlValue>) -> QueryBuilder<Self> {
         Self::query().where_eq(Self::primary_key(), id)
     }

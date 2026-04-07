@@ -19,6 +19,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
     let mut soft_delete_col: Option<String> = None;
     let mut fillable_cols: Vec<String> = Vec::new();
     let mut guarded_cols: Vec<String> = Vec::new();
+    let mut uuid_pk = false;
 
     for attr in &input.attrs {
         let is_model_attr = attr.path().is_ident("model") || attr.path().is_ident("rok_orm");
@@ -57,6 +58,9 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                 let value = meta.value()?;
                 let s: LitStr = value.parse()?;
                 updated_at_col = Some(s.value());
+                Ok(())
+            } else if meta.path.is_ident("uuid") {
+                uuid_pk = true;
                 Ok(())
             } else if meta.path.is_ident("fillable") {
                 let value = meta.value()?;
@@ -168,6 +172,23 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
         }
     };
 
+    let uuid_impl = if uuid_pk {
+        quote! {
+            fn new_unique_id() -> Option<::rok_orm::SqlValue> {
+                #[cfg(feature = "uuid-pk")]
+                {
+                    Some(::rok_orm::SqlValue::Text(::uuid::Uuid::new_v4().to_string()))
+                }
+                #[cfg(not(feature = "uuid-pk"))]
+                {
+                    panic!("uuid-pk feature must be enabled to use UUID primary keys")
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let fillable_len = fillable_cols.len();
     let guarded_len = guarded_cols.len();
 
@@ -203,6 +224,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
             }
             #soft_delete_impl
             #timestamps_impl
+            #uuid_impl
             #fillable_impl
             #guarded_impl
         }
