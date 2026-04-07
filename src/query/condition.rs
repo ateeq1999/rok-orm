@@ -280,10 +280,12 @@ impl Condition {
 
 // ΓöÇΓöÇ OrderDir ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OrderDir {
     Asc,
     Desc,
+    /// Raw ORDER BY expression, rendered verbatim.
+    Raw(String),
 }
 
 impl fmt::Display for OrderDir {
@@ -291,6 +293,7 @@ impl fmt::Display for OrderDir {
         match self {
             Self::Asc => write!(f, "ASC"),
             Self::Desc => write!(f, "DESC"),
+            Self::Raw(expr) => write!(f, "{expr}"),
         }
     }
 }

@@ -1,6 +1,7 @@
 pub mod condition;
 mod builder;
 mod conditions;
+mod ergonomics;
 mod sql_gen;
 mod sql_write;
 mod subquery;

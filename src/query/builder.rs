@@ -283,13 +283,17 @@ impl<T> QueryBuilder<T> {
     }
 
     pub(crate) fn build_order(&self) -> String {
+        use super::condition::OrderDir;
         if self.order.is_empty() {
             return String::new();
         }
         let parts: Vec<String> = self
             .order
             .iter()
-            .map(|(col, dir)| format!("{col} {dir}"))
+            .map(|(col, dir)| match dir {
+                OrderDir::Raw(expr) => expr.clone(),
+                _ => format!("{col} {dir}"),
+            })
             .collect();
         format!(" ORDER BY {}", parts.join(", "))
     }
