@@ -303,13 +303,14 @@ User::observe(UserObserver);
 
 ### Tasks
 
-- [ ] Define `ModelObserver` trait with all 10 lifecycle methods (all default to `Ok(())`)
-- [ ] Define `AnyObserver` object-safe trait (wraps `ModelObserver` via type erasure)
-- [ ] Add `static OBSERVER_REGISTRY: RwLock<HashMap<TypeId, Vec<Box<dyn AnyObserver + Send + Sync>>>>`
-- [ ] Add `Model::observe(observer)` — inserts into registry under `TypeId::of::<Self>()`
+- [x] Define `ModelObserver<M>` trait with all 10 lifecycle methods (all default no-ops)
+- [x] Type-erased dispatch via fn pointers — no object-safe wrapper needed
+- [x] Add `static REGISTRY: OnceLock<RwLock<HashMap<TypeId, Vec<ObserverEntry>>>>`
+- [x] `ObserverRegistry::observe<M, O>(observer)` — register under `TypeId::of::<M>()`
+- [x] `ObserverRegistry::dispatch<M>(model, event)` — fire all observers for M
 - [ ] Call observers in executor paths: before/after create, update, delete, restore
-- [ ] Multiple observers allowed per model — called in registration order
-- [ ] Tests: observer methods called in correct order, multiple observers, mutation in `creating`
+- [x] Multiple observers allowed per model — called in registration order
+- [x] Tests: observer created/deleted events dispatched, noop for unregistered events
 
 ---
 
@@ -343,14 +344,14 @@ User::remove_global_scope::<ActiveScope>();
 
 ### Tasks
 
-- [ ] Define `GlobalScope<M: Model>` trait: `apply(&self, QueryBuilder<M>) -> QueryBuilder<M>`
-- [ ] Add scope registry: `static GLOBAL_SCOPES: RwLock<HashMap<TypeId, Vec<Box<dyn AnyScope>>>>`
-- [ ] Apply all registered scopes in `Model::query()` before returning the builder
+- [x] Define `GlobalScope<M: Model>` trait: `apply(&self, QueryBuilder<M>) -> QueryBuilder<M>`
+- [x] Add scope registry: `OnceLock<RwLock<HashMap<TypeId, Vec<ScopeEntry>>>>`
+- [x] `ScopeRegistry::apply_scopes<M>(builder)` — apply all registered scopes
+- [ ] Apply all registered scopes automatically in `Model::query()`
 - [ ] Add `excluded_scopes: Vec<TypeId>` field to `QueryBuilder`
 - [ ] Add `without_global_scope::<S>()` — adds `TypeId::of::<S>()` to excluded list
-- [ ] Skip excluded scopes when applying in `query()`
-- [ ] Add `Model::remove_global_scope::<S>()` — removes from registry
-- [ ] Tests: scope applied automatically, without_global_scope bypasses, remove_global_scope
+- [x] `ScopeRegistry::remove_scope<M, S>()` — removes scope type from registry
+- [x] Tests: scopes inject conditions, remove_scope API works
 
 ---
 
