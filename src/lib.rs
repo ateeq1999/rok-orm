@@ -76,6 +76,9 @@ pub mod scopes;
 pub mod observer;
 pub mod global_scope;
 pub use global_scope::{GlobalScope, ScopeRegistry};
+
+pub mod connection;
+pub use connection::ConnectionRegistry;
 pub use observer::{ModelObserver, ObserverEvent, ObserverRegistry};
 pub mod errors;
 pub use errors::{OrmError, OrmResult, IntoOrmResult};

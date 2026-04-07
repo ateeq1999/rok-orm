@@ -62,6 +62,14 @@ pub trait Model: Sized {
         &[]
     }
 
+    /// Named connection key for this model. Default is `"default"`.
+    ///
+    /// Override with `#[model(connection = "audit_db")]` to use a named pool
+    /// registered in [`ConnectionRegistry`].
+    fn connection() -> &'static str {
+        "default"
+    }
+
     /// Filter `data` through the fillable/guarded lists.
     ///
     /// If `fillable()` is non-empty, only listed columns pass through.

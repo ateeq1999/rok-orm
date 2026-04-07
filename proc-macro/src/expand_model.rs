@@ -22,6 +22,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
     let mut touches_rels: Vec<String> = Vec::new();
     let mut uuid_pk = false;
     let mut ulid_pk = false;
+    let mut connection_name: Option<String> = None;
 
     for attr in &input.attrs {
         let is_model_attr = attr.path().is_ident("model") || attr.path().is_ident("rok_orm");
@@ -66,6 +67,11 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                 Ok(())
             } else if meta.path.is_ident("ulid") {
                 ulid_pk = true;
+                Ok(())
+            } else if meta.path.is_ident("connection") {
+                let value = meta.value()?;
+                let s: LitStr = value.parse()?;
+                connection_name = Some(s.value());
                 Ok(())
             } else if meta.path.is_ident("touches") {
                 let value = meta.value()?;
@@ -214,6 +220,14 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
         quote! {}
     };
 
+    let connection_impl = if let Some(ref conn) = connection_name {
+        quote! {
+            fn connection() -> &'static str { #conn }
+        }
+    } else {
+        quote! {}
+    };
+
     let touches_len = touches_rels.len();
     let touches_impl = if touches_len > 0 {
         quote! {
@@ -262,6 +276,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
             #soft_delete_impl
             #timestamps_impl
             #uuid_impl
+            #connection_impl
             #touches_impl
             #fillable_impl
             #guarded_impl
