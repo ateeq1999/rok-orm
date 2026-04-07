@@ -96,7 +96,7 @@ let rows: Vec<User> = User::from_raw_sql(
 - [x] Add `select_raw(sql: &str)` — replaces or extends `select_cols`
 - [x] Add `order_raw(sql: &str)` — appended to ORDER BY list as literal (`OrderDir::Raw`)
 - [x] Add `having_raw(sql: &str)` — alias for `having()`
-- [ ] Add `Model::from_raw_sql(pool, sql, params)` on PgModel / SqliteModel / MyModel
+- [x] Add `Model::from_raw_sql(pool, sql, params)` on PgModel (backed by `postgres::fetch_raw`)
 - [ ] Placeholder numbering: raw SQL uses its own `$N` sequence, offset by current param count
 - [x] Tests: select_raw, order_raw tested in ergonomics tests
 

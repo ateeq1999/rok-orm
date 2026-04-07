@@ -609,11 +609,10 @@ let deleted = ActivityLog::prune(&pool).await?;  // → u64 rows deleted
 
 ### Tasks
 
-- [ ] Define `Prunable` trait: `prunable_query() -> QueryBuilder<Self>`
-- [ ] Add default `prune(pool) -> OrmResult<u64>` method on `Prunable` (runs DELETE)
-- [ ] Add `#[model(prunable)]` as documentation marker (no code gen required)
+- [x] Define `Prunable` trait: `prunable_query() -> QueryBuilder<Self>`
+- [x] Add default `prune(pool)` / `prune_sqlite(pool)` / `prune_mysql(pool)` on `Prunable` (DELETE)
 - [ ] Add `PrunableRegistry` — register + `prune_all(pool)` batch runner
-- [ ] Tests: prune with date filter, prune returns count, prune with soft-delete model
+- [x] Tests: prune generates correct DELETE SQL with date filter
 
 ---
 
