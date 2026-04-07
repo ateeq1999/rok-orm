@@ -159,3 +159,138 @@ fn mysql_dialect_uses_question_mark() {
     assert!(sql.contains("id IN (?, ?, ?)"));
     assert_eq!(params.len(), 3);
 }
+
+#[test]
+fn distinct_adds_keyword() {
+    let (sql, _) = QueryBuilder::<()>::new("users")
+        .distinct()
+        .select(&["email"])
+        .to_sql();
+    assert!(sql.contains("SELECT DISTINCT email FROM users"));
+}
+
+#[test]
+fn select_specific_columns() {
+    let (sql, _) = QueryBuilder::<()>::new("users")
+        .select(&["id", "name", "email"])
+        .to_sql();
+    assert!(sql.contains("SELECT id, name, email FROM users"));
+    assert!(!sql.contains("SELECT *"));
+}
+
+#[test]
+fn order_by_asc_and_desc() {
+    let (sql, _) = QueryBuilder::<()>::new("posts")
+        .order_by("title")
+        .order_by_desc("created_at")
+        .to_sql();
+    assert!(sql.contains("ORDER BY title ASC, created_at DESC"));
+}
+
+#[test]
+fn paginate_sets_limit_and_offset() {
+    let (sql, _) = QueryBuilder::<()>::new("posts")
+        .paginate(3, 10)
+        .to_sql();
+    assert!(sql.contains("LIMIT 10"));
+    assert!(sql.contains("OFFSET 20"));
+}
+
+#[test]
+fn where_null_generates_is_null() {
+    let (sql, params) = QueryBuilder::<()>::new("users")
+        .where_null("deleted_at")
+        .to_sql();
+    assert!(sql.contains("deleted_at IS NULL"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn where_not_null_generates_is_not_null() {
+    let (sql, params) = QueryBuilder::<()>::new("users")
+        .where_not_null("email")
+        .to_sql();
+    assert!(sql.contains("email IS NOT NULL"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn where_between_generates_correct_sql() {
+    let (sql, params) = QueryBuilder::<()>::new("orders")
+        .where_between("amount", 10i64, 100i64)
+        .to_sql();
+    assert!(sql.contains("amount BETWEEN $1 AND $2"));
+    assert_eq!(params.len(), 2);
+}
+
+#[test]
+fn cursor_sql_adds_where_gt_and_limit_plus_one() {
+    let (sql, params) = QueryBuilder::<()>::new("posts")
+        .cursor_sql("id", Some(42i64), 20)
+        .to_sql();
+    assert!(sql.contains("id > $1"));
+    assert!(sql.contains("LIMIT 21"));
+    assert_eq!(params.len(), 1);
+    assert_eq!(params[0], SqlValue::Integer(42));
+}
+
+#[test]
+fn cursor_sql_without_after_adds_only_limit() {
+    let (sql, params) = QueryBuilder::<()>::new("posts")
+        .cursor_sql("id", None, 10)
+        .to_sql();
+    assert!(!sql.contains("WHERE"));
+    assert!(sql.contains("LIMIT 11"));
+    assert!(params.is_empty());
+}
+
+#[test]
+fn exists_sql_wraps_in_select_exists() {
+    let (sql, _) = QueryBuilder::<()>::new("users")
+        .where_eq("active", true)
+        .exists_sql();
+    assert!(sql.starts_with("SELECT EXISTS(SELECT 1 FROM users"));
+    assert!(sql.contains("active = $1"));
+}
+
+#[test]
+fn pluck_sql_selects_single_column() {
+    let (sql, params) = QueryBuilder::<()>::new("tags")
+        .where_eq("post_id", 5i64)
+        .pluck_sql("name");
+    assert!(sql.contains("SELECT name FROM tags"));
+    assert!(sql.contains("post_id = $1"));
+    assert_eq!(params.len(), 1);
+}
+
+#[test]
+fn or_where_joins_with_or() {
+    let (sql, params) = QueryBuilder::<()>::new("users")
+        .where_eq("role", "admin")
+        .or_where_eq("role", "moderator")
+        .to_sql();
+    assert!(sql.contains("role = $1 OR role = $2"));
+    assert_eq!(params.len(), 2);
+}
+
+#[test]
+fn update_sql_generates_set_clause() {
+    let data = [("name", SqlValue::Text("Bob".into())), ("active", SqlValue::Bool(false))];
+    let (sql, params) = QueryBuilder::<()>::new("users")
+        .where_eq("id", 7i64)
+        .to_update_sql(&data);
+    assert!(sql.starts_with("UPDATE users SET"));
+    assert!(sql.contains("name = $1"));
+    assert!(sql.contains("WHERE id = $3"));
+    assert_eq!(params.len(), 3);
+}
+
+#[test]
+fn delete_sql_with_condition() {
+    let (sql, params) = QueryBuilder::<()>::new("sessions")
+        .where_eq("user_id", 99i64)
+        .to_delete_sql();
+    assert!(sql.starts_with("DELETE FROM sessions"));
+    assert!(sql.contains("WHERE user_id = $1"));
+    assert_eq!(params.len(), 1);
+}

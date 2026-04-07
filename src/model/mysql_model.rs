@@ -239,6 +239,16 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
         mysql::execute(pool, &sql, vec![SqlValue::Integer(delta), id.into()]).await
     }
 
+    /// Find a soft-deleted record by PK (includes trashed records).
+    fn find_trashed_by_pk(
+        pool: &MyPool,
+        id: impl Into<SqlValue> + Send,
+    ) -> impl std::future::Future<Output = Result<Option<Self>, sqlx::Error>> + Send
+    where Self: Sized,
+    {
+        mysql::fetch_optional(pool, Self::find(id).with_trashed())
+    }
+
     /// Fetch rows using a raw SQL string with `?` placeholders.
     fn from_raw_sql(
         pool: &MyPool,
