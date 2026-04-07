@@ -253,4 +253,17 @@ mod tests {
         });
         assert!(!events_muted());
     }
+
+    #[test]
+    fn first_or_new_merges_conditions_and_data() {
+        let conditions = [("email", SqlValue::Text("a@b.com".into()))];
+        let data = [
+            ("name", SqlValue::Text("Alice".into())),
+            ("email", SqlValue::Text("ignored@b.com".into())), // duplicate key
+        ];
+        let merged = MockModel::first_or_new(&conditions, &data);
+        assert_eq!(merged.len(), 2); // email + name (no duplicate)
+        assert!(merged.iter().any(|(k, _)| *k == "email"));
+        assert!(merged.iter().any(|(k, _)| *k == "name"));
+    }
 }

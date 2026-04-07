@@ -147,4 +147,15 @@ mod tests {
         // may be shared with other tests, so we just call the API.
         ScopeRegistry::remove_scope::<ScopeModel, NotDeletedFilter>();
     }
+
+    #[test]
+    fn without_global_scope_excludes_scope() {
+        ScopeRegistry::add_scope::<ScopeModel, _>(ActiveFilter);
+        let builder = QueryBuilder::<ScopeModel>::new("scope_tests")
+            .without_global_scope::<ActiveFilter>();
+        let builder = ScopeRegistry::apply_scopes::<ScopeModel>(builder);
+        let (sql, _) = builder.to_sql();
+        // ActiveFilter was excluded — WHERE active should NOT appear
+        assert!(!sql.contains("active = "), "scope should be excluded: {sql}");
+    }
 }

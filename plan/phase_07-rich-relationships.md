@@ -321,7 +321,7 @@ user.posts().create_many(&pool, &[
 - [x] Add `create_sql(parent_id, data)` on `HasMany` — INSERT with FK injected
 - [x] Add `associate_sql(child_pk, parent_id)` on `HasMany` and `BelongsTo` — UPDATE SET fk
 - [x] Add `dissociate_sql(child_pk)` on `HasMany` and `BelongsTo` — UPDATE SET fk = NULL
-- [ ] Add async `create()`, `create_returning()` on `HasMany` for direct DB execution
+- [x] Add async `create()`, `create_returning()` on `HasMany` for direct DB execution
 - [ ] Add `save(&mut child)` — inserts or updates, injects FK from parent
 - [ ] Add `create_or_replace(pool, data)` on `HasOneQuery` — delete existing then insert
 - [x] Tests: create_sql, associate_sql, dissociate_sql SQL generation
@@ -372,11 +372,11 @@ WHERE (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) > 5
 
 ### Tasks
 
-- [ ] Add `CountOp` enum: `Equal`, `NotEqual`, `GreaterThan`, `GreaterThanOrEqual`, `LessThan`, `LessThanOrEqual`
+- [x] Add `CountOp` enum: `Equal`, `NotEqual`, `GreaterThan`, `GreaterThanOrEqual`, `LessThan`, `LessThanOrEqual`
 - [x] Add `where_has(rel, closure)` to QueryBuilder → `WHERE EXISTS (...)`
 - [x] Add `where_doesnt_have(rel, closure?)` → `WHERE NOT EXISTS (...)`
 - [x] Add `where_has_raw` / `where_doesnt_have_raw` for raw subquery strings
-- [ ] Add `where_has_count(rel, n, CountOp)` → subquery with count comparison
+- [x] Add `where_has_count(rel, n, CountOp)` → subquery with count comparison
 - [ ] Integrate with relation registry (each model exposes its relation sub-query builders via macro)
 - [ ] Tests: each variant, with and without closure, PG + SQLite
 
@@ -452,7 +452,7 @@ let user = User::update_or_create(&pool,
 ### Tasks
 
 - [x] Add `first_or_create(pool, search, defaults)` to PgModel / SqliteModel / MyModel
-- [ ] Add `first_or_new(search, defaults) -> Self` (sync, no pool)
+- [x] Add `first_or_new(search, defaults) -> Self` (sync, no pool)
 - [x] Add `update_or_create(pool, search, values)` — UPDATE if found, INSERT if not
 - [ ] Tests: create path, find path, update path
 
@@ -611,7 +611,7 @@ let deleted = ActivityLog::prune(&pool).await?;  // → u64 rows deleted
 
 - [x] Define `Prunable` trait: `prunable_query() -> QueryBuilder<Self>`
 - [x] Add default `prune(pool)` / `prune_sqlite(pool)` / `prune_mysql(pool)` on `Prunable` (DELETE)
-- [ ] Add `PrunableRegistry` — register + `prune_all(pool)` batch runner
+- [x] Add `PrunableRegistry` — register + `prune_all(pool)` batch runner
 - [x] Tests: prune generates correct DELETE SQL with date filter
 
 ---
@@ -638,7 +638,7 @@ user.save_quietly(&pool, &[("name", "Quiet Update".into())]).await?;
 - [x] Add `EVENTS_MUTED: thread_local! { Cell<bool> }`
 - [x] Add `Model::without_events(closure)` — set flag, run, reset
 - [ ] Executor paths check flag before dispatching hooks / observer calls
-- [ ] Add `save_quietly(pool, data)` as convenience wrapper calling `update_by_pk` with events muted
+- [x] Add `save_quietly(pool, data)` as convenience wrapper calling `update_by_pk` with events muted
 - [x] Tests: without_events sets and resets flag correctly
 
 ---

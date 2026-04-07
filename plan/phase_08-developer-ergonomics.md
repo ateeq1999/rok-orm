@@ -221,7 +221,7 @@ cursor = base64(json!({"created_at": "2026-01-01T00:00:00Z", "id": 42}))
 - [x] Add `CursorPage { after: Option<i64>, limit: usize }` struct
 - [x] Add `CursorResult<T> { data, next_cursor, has_more }` struct + `from_rows()`
 - [x] `QueryBuilder::cursor_sql(pk_col, after_id, limit)` — apply WHERE id > cursor + LIMIT n+1
-- [ ] Add `async fn cursor_paginate(pool, cursor_page) -> OrmResult<CursorResult<T>>` to PgModelExt
+- [x] Add `async fn cursor_paginate(pool, cursor_page) -> OrmResult<CursorResult<T>>` to PgModelExt
 - [ ] Decode incoming cursor: base64 → JSON → extract column values → inject as WHERE conditions
 - [ ] Encode outgoing cursor: take last row's ORDER BY values → JSON → base64
 - [x] Fetch `limit + 1` rows; `from_rows()` handles trimming and `has_more`
@@ -348,9 +348,9 @@ User::remove_global_scope::<ActiveScope>();
 - [x] Define `GlobalScope<M: Model>` trait: `apply(&self, QueryBuilder<M>) -> QueryBuilder<M>`
 - [x] Add scope registry: `OnceLock<RwLock<HashMap<TypeId, Vec<ScopeEntry>>>>`
 - [x] `ScopeRegistry::apply_scopes<M>(builder)` — apply all registered scopes
-- [ ] Apply all registered scopes automatically in `Model::query()`
-- [ ] Add `excluded_scopes: Vec<TypeId>` field to `QueryBuilder`
-- [ ] Add `without_global_scope::<S>()` — adds `TypeId::of::<S>()` to excluded list
+- [x] Apply all registered scopes automatically in `Model::query()` (via scoped_query() on all/get/count/first)
+- [x] Add `excluded_scopes: Vec<TypeId>` field to `QueryBuilder`
+- [x] Add `without_global_scope::<S>()` — adds `TypeId::of::<S>()` to excluded list
 - [x] `ScopeRegistry::remove_scope<M, S>()` — removes scope type from registry
 - [x] Tests: scopes inject conditions, remove_scope API works
 

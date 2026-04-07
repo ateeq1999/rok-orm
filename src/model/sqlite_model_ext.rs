@@ -170,6 +170,43 @@ pub trait SqliteModelExt: SqliteModel {
         }
         sqlite::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
     }
+
+    /// Fetch all records in chunks via LIMIT/OFFSET.
+    async fn chunk_collect(
+        pool: &SqlitePool,
+        builder: QueryBuilder<Self>,
+        chunk_size: usize,
+    ) -> Result<Vec<Vec<Self>>, sqlx::Error>
+    where Self: Sized,
+    {
+        let mut results = Vec::new();
+        let mut offset = 0usize;
+        loop {
+            let batch = sqlite::fetch_all(
+                pool,
+                builder.clone().limit(chunk_size).offset(offset),
+            ).await?;
+            if batch.is_empty() { break; }
+            offset += batch.len();
+            results.push(batch);
+        }
+        Ok(results)
+    }
+
+    /// Cursor-based pagination for SQLite. Fetches `limit + 1` rows to detect `has_more`.
+    async fn cursor_paginate(
+        pool: &SqlitePool,
+        builder: QueryBuilder<Self>,
+        cursor: crate::cursor::CursorPage,
+        get_id: impl Fn(&Self) -> i64 + Send,
+    ) -> Result<crate::cursor::CursorResult<Self>, sqlx::Error>
+    where Self: Sized,
+    {
+        let pk = Self::primary_key();
+        let qb = builder.cursor_sql(pk, cursor.after, cursor.limit);
+        let rows = sqlite::fetch_all(pool, qb).await?;
+        Ok(crate::cursor::CursorResult::from_rows(rows, cursor.limit, get_id))
+    }
 }
 
 impl<T> SqliteModelExt for T

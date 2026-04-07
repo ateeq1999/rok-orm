@@ -151,4 +151,16 @@ mod tests {
         assert!(sql.contains("DELETE FROM logs"));
         assert!(sql.contains("WHERE created_at < '2020-01-01'"));
     }
+
+    #[test]
+    fn prunable_registry_register_produces_correct_sql() {
+        PrunableRegistry::register::<LogModel>();
+        // Verify the SQL that was registered runs the same DELETE query
+        let fns: Vec<_> = {
+            let guard = registry().read().unwrap();
+            guard.iter().map(|f| f()).collect()
+        };
+        // At least one entry should match our LogModel
+        assert!(fns.iter().any(|(sql, _)| sql.contains("DELETE FROM logs")));
+    }
 }
