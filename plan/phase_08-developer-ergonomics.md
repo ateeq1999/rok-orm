@@ -392,5 +392,5 @@ Comment::update_by_pk(&pool, comment_id, &[("body", "edited".into())]).await?;
 - [ ] All 9 sub-sections fully implemented
 - [ ] Zero regressions in existing tests
 - [ ] All features tested on PG + SQLite (minimum)
-- [ ] `cargo clippy -- -D warnings` clean
+- [x] `cargo clippy -- -D warnings` clean
 - [ ] Phase file tasks all checked off
