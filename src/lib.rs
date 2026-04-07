@@ -58,7 +58,7 @@ pub mod executor;
 pub mod relations;
 pub use relations::{
     BelongsTo, HasMany, HasManyThrough, HasOne, HasOneThrough,
-    ManyToMany, BelongsToMany, Relation, Relations,
+    ManyToMany, BelongsToMany, PivotRow, Relation, Relations,
 };
 
 #[cfg(feature = "postgres")]
