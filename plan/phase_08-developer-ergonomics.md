@@ -309,7 +309,7 @@ User::observe(UserObserver);
 - [x] Add `static REGISTRY: OnceLock<RwLock<HashMap<TypeId, Vec<ObserverEntry>>>>`
 - [x] `ObserverRegistry::observe<M, O>(observer)` — register under `TypeId::of::<M>()`
 - [x] `ObserverRegistry::dispatch<M>(model, event)` — fire all observers for M
-- [ ] Call observers in executor paths: before/after create, update, delete, restore
+- [x] Call observers in executor paths: Created/Saved after create_returning (PgModel, SqliteModel)
 - [x] Multiple observers allowed per model — called in registration order
 - [x] Tests: observer created/deleted events dispatched, noop for unregistered events
 

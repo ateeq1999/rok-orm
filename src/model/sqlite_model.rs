@@ -6,7 +6,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use chrono::Utc;
-use crate::model::{Model, model::timestamps_muted};
+use crate::model::{Model, model::{timestamps_muted, events_muted}};
 use crate::query::{QueryBuilder, SqlValue};
 use sqlx::{sqlite::SqliteRow, SqlitePool};
 
@@ -175,7 +175,7 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
         pool: &SqlitePool,
         data: &[(&str, SqlValue)],
     ) -> Result<Self, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + 'static,
     {
         let mut d = Self::filter_fillable(data);
         if let Some(pk_val) = Self::new_unique_id() {
@@ -189,7 +189,13 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
                 d.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
             }
         }
-        sqlite::insert_returning::<Self>(pool, Self::table_name(), &d).await
+        let row = sqlite::insert_returning::<Self>(pool, Self::table_name(), &d).await?;
+        if !events_muted() {
+            use crate::observer::{ObserverRegistry, ObserverEvent};
+            ObserverRegistry::dispatch::<Self>(&row, ObserverEvent::Created);
+            ObserverRegistry::dispatch::<Self>(&row, ObserverEvent::Saved);
+        }
+        Ok(row)
     }
 
     fn restore(

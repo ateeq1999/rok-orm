@@ -579,7 +579,7 @@ User::increment_without_timestamps(&pool, 1, "views", 1).await?;
 - [x] Add `TIMESTAMPS_MUTED: thread_local! { Cell<bool> }`
 - [x] Add `Model::without_timestamps(closure)` — sets flag, runs, resets
 - [x] Executor paths check flag before injecting timestamp columns (PgModel)
-- [ ] Add `increment_without_timestamps(pool, id, col, delta)` helper
+- [x] Add `increment_without_timestamps(pool, id, col, delta)` helper
 - [x] Tests: without_timestamps sets and resets flag correctly
 
 ---
