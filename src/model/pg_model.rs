@@ -219,4 +219,26 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     }
 }
 
+    /// Fetch rows using a raw SQL string and positional parameters (`$1`, `$2`, …).
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let users = User::from_raw_sql(
+    ///     &pool,
+    ///     "SELECT * FROM users WHERE active = $1",
+    ///     vec![true.into()],
+    /// ).await?;
+    /// ```
+    fn from_raw_sql(
+        pool: &PgPool,
+        sql: &str,
+        params: Vec<SqlValue>,
+    ) -> impl std::future::Future<Output = Result<Vec<Self>, sqlx::Error>> + Send
+    where Self: Sized,
+    {
+        postgres::fetch_raw::<Self>(pool, sql, params)
+    }
+}
+
 impl<T> PgModel for T where T: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {}

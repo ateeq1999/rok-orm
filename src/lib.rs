@@ -39,7 +39,7 @@ pub mod query;
 pub use query::{Condition, Dialect, Join, JoinOp, OrderDir, QueryBuilder, SqlValue};
 
 pub mod model;
-pub use model::Model;
+pub use model::{Model, Prunable};
 #[cfg(feature = "postgres")]
 pub use model::{PgModel, PgModelExt};
 #[cfg(feature = "sqlite")]

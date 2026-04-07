@@ -1,4 +1,5 @@
 mod model;
+mod prunable;
 #[cfg(feature = "postgres")]
 mod pg_model;
 #[cfg(feature = "postgres")]
@@ -13,6 +14,7 @@ mod mysql_model;
 mod mysql_model_ext;
 
 pub use model::Model;
+pub use prunable::Prunable;
 #[cfg(feature = "postgres")]
 pub use pg_model::PgModel;
 #[cfg(feature = "postgres")]

@@ -297,4 +297,3 @@ impl<T> QueryBuilder<T> {
         format!(" ORDER BY {}", parts.join(", "))
     }
 }
-

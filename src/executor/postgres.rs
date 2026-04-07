@@ -67,6 +67,18 @@ pub async fn count<T>(pool: &PgPool, builder: QueryBuilder<T>) -> Result<i64, sq
     row.try_get::<i64, _>(0)
 }
 
+/// Fetch rows using a raw SQL string with positional parameters.
+pub async fn fetch_raw<T>(
+    pool: &PgPool,
+    sql: &str,
+    params: Vec<SqlValue>,
+) -> Result<Vec<T>, sqlx::Error>
+where
+    T: for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+{
+    sqlx_pg::fetch_all_as::<T>(pool, sql, params).await
+}
+
 /// Execute a raw SQL string with positional parameters and return rows affected.
 pub async fn execute_raw(
     pool: &PgPool,
