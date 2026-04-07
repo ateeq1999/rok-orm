@@ -36,7 +36,7 @@
 // ── Core ─────────────────────────────────────────────────────────────────────
 
 pub mod query;
-pub use query::{Condition, Dialect, Join, JoinOp, OrderDir, QueryBuilder, SqlValue};
+pub use query::{Condition, CountOp, Dialect, Join, JoinOp, OrderDir, QueryBuilder, SqlValue};
 
 pub mod model;
 pub use model::{Model, Prunable};

@@ -12,6 +12,7 @@ mod tests_advanced;
 
 pub use builder::{Dialect, Join, QueryBuilder, SoftDeleteMode};
 pub use condition::{Condition, JoinOp, OrderDir, SqlValue};
+pub use subquery::CountOp;
 
 // ── shared WHERE-clause helpers ─────────────────────────────────────────────
 

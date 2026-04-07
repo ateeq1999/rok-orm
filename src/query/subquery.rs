@@ -99,9 +99,62 @@ impl<T> QueryBuilder<T> {
         self.where_has_raw(&subquery)
     }
 
+    /// Add a `WHERE (SELECT COUNT(*) FROM subquery) OP n` clause.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use rok_orm::{QueryBuilder, CountOp};
+    ///
+    /// let (sql, _) = QueryBuilder::<()>::new("users")
+    ///     .where_has_count("comments", "user_id", "id", 5, CountOp::GreaterThan)
+    ///     .to_sql();
+    ///
+    /// assert!(sql.contains("SELECT COUNT(*)"));
+    /// assert!(sql.contains("> 5"));
+    /// ```
+    pub fn where_has_count(
+        self,
+        child_table: &str,
+        foreign_key: &str,
+        self_pk: &str,
+        count: i64,
+        op: CountOp,
+    ) -> Self {
+        let table = self.table.clone();
+        let raw = format!(
+            "(SELECT COUNT(*) FROM {child_table} WHERE {child_table}.{foreign_key} = {table}.{self_pk}) {op} {count}",
+        );
+        self.push(JoinOp::And, Condition::Raw(raw))
+    }
+
     /// Access the underlying table name (used by subquery helpers).
     pub fn table(&self) -> &str {
         &self.table
+    }
+}
+
+/// Comparison operator for `where_has_count`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CountOp {
+    Equal,
+    NotEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+}
+
+impl std::fmt::Display for CountOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Equal => write!(f, "="),
+            Self::NotEqual => write!(f, "!="),
+            Self::GreaterThan => write!(f, ">"),
+            Self::GreaterThanOrEqual => write!(f, ">="),
+            Self::LessThan => write!(f, "<"),
+            Self::LessThanOrEqual => write!(f, "<="),
+        }
     }
 }
 
@@ -123,5 +176,22 @@ mod tests {
             .where_doesnt_have_raw("SELECT 1 FROM posts WHERE posts.user_id = users.id")
             .to_sql();
         assert!(sql.contains("NOT EXISTS"));
+    }
+
+    #[test]
+    fn where_has_count_greater_than() {
+        let (sql, _) = QueryBuilder::<()>::new("users")
+            .where_has_count("comments", "user_id", "id", 5, CountOp::GreaterThan)
+            .to_sql();
+        assert!(sql.contains("SELECT COUNT(*) FROM comments WHERE comments.user_id = users.id"));
+        assert!(sql.contains("> 5"));
+    }
+
+    #[test]
+    fn where_has_count_less_than_or_equal() {
+        let (sql, _) = QueryBuilder::<()>::new("posts")
+            .where_has_count("likes", "post_id", "id", 100, CountOp::LessThanOrEqual)
+            .to_sql();
+        assert!(sql.contains("<= 100"));
     }
 }
