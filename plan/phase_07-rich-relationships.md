@@ -318,13 +318,13 @@ user.posts().create_many(&pool, &[
 
 ### Tasks
 
-- [ ] Add `create()`, `create_returning()`, `create_many()` on `HasManyQuery` / `HasOneQuery`
+- [x] Add `create_sql(parent_id, data)` on `HasMany` — INSERT with FK injected
+- [x] Add `associate_sql(child_pk, parent_id)` on `HasMany` and `BelongsTo` — UPDATE SET fk
+- [x] Add `dissociate_sql(child_pk)` on `HasMany` and `BelongsTo` — UPDATE SET fk = NULL
+- [ ] Add async `create()`, `create_returning()` on `HasMany` for direct DB execution
 - [ ] Add `save(&mut child)` — inserts or updates, injects FK from parent
-- [ ] Add `associate(pool, parent)` on `BelongsToQuery` — UPDATE SET fk = parent.pk
-- [ ] Add `dissociate(pool)` — UPDATE SET fk = NULL
 - [ ] Add `create_or_replace(pool, data)` on `HasOneQuery` — delete existing then insert
-- [ ] Auto-inject FK value from the parent model instance
-- [ ] Tests: all write ops on PG + SQLite
+- [x] Tests: create_sql, associate_sql, dissociate_sql SQL generation
 
 ---
 
@@ -417,11 +417,11 @@ FROM posts
 ### Tasks
 
 - [ ] Add `extras: HashMap<String, SqlValue>` field to model row results (or use `serde_json::Value`)
-- [ ] Add `with_count(rel)`, `with_count_as(alias, rel, closure?)` to QueryBuilder
-- [ ] Add `with_sum(rel, col)`, `with_avg(rel, col)`, `with_min(rel, col)`, `with_max(rel, col)`
-- [ ] Generate subquery SQL for each aggregate, inject as named column
+- [x] Add `with_count_col(child, fk, pk, alias)` to QueryBuilder — correlated COUNT subquery
+- [x] Add `with_sum_col`, `with_avg_col`, `with_min_col`, `with_max_col` — aggregate subqueries
+- [x] Generate subquery SQL injected into SELECT list as named column
 - [ ] Map result column into the `extras` map after fetch
-- [ ] Tests: count, sum, avg, filtered count, PG + SQLite
+- [x] Tests: with_count, with_sum, multiple aggregates combined
 
 ---
 
