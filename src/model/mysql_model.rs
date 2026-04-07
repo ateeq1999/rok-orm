@@ -202,6 +202,17 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     {
         mysql::force_delete(pool, builder)
     }
+
+    /// Fetch rows using a raw SQL string with `?` placeholders.
+    fn from_raw_sql(
+        pool: &MyPool,
+        sql: &str,
+        params: Vec<SqlValue>,
+    ) -> impl std::future::Future<Output = Result<Vec<Self>, sqlx::Error>> + Send
+    where Self: Sized,
+    {
+        mysql::fetch_raw::<Self>(pool, sql, params)
+    }
 }
 
 impl<T> MyModel for T where T: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {}

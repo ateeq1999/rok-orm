@@ -65,6 +65,13 @@ where
     query.fetch_optional(pool).await
 }
 
+pub async fn fetch_raw<T>(pool: &MyPool, sql: &str, params: Vec<SqlValue>) -> Result<Vec<T>, sqlx::Error>
+where
+    T: for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin,
+{
+    fetch_all_as::<T>(pool, sql, params).await
+}
+
 pub async fn count<T>(pool: &MyPool, builder: QueryBuilder<T>) -> Result<i64, sqlx::Error> {
     let (sql, params) = builder.to_count_sql_with_dialect(Dialect::Mysql);
     let mut query = sqlx::query(&sql);
