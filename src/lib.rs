@@ -71,6 +71,8 @@ pub use pagination::{Page, PaginationOptions};
 
 pub mod scopes;
 pub mod observer;
+pub mod global_scope;
+pub use global_scope::{GlobalScope, ScopeRegistry};
 pub use observer::{ModelObserver, ObserverEvent, ObserverRegistry};
 pub mod errors;
 pub use errors::{OrmError, OrmResult, IntoOrmResult};
