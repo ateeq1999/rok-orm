@@ -378,7 +378,7 @@ WHERE (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) > 5
 - [x] Add `where_has_raw` / `where_doesnt_have_raw` for raw subquery strings
 - [x] Add `where_has_count(rel, n, CountOp)` → subquery with count comparison
 - [ ] Integrate with relation registry (each model exposes its relation sub-query builders via macro)
-- [ ] Tests: each variant, with and without closure, PG + SQLite
+- [x] Tests: each variant, with and without closure (unit tests in subquery.rs)
 
 ---
 

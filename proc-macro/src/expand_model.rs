@@ -144,7 +144,15 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                     let s: LitStr = value.parse()?;
                     col_override = Some(s.value());
                     Ok(())
-                } else { Err(meta.error("unknown model field attribute")) }
+                } else {
+                    // Relation attrs (has_many, has_one, etc.) mark the field as skip
+                    let is_relation = ["has_many", "has_one", "belongs_to",
+                        "has_many_through", "has_one_through", "belongs_to_many"]
+                        .iter().any(|&r| meta.path.is_ident(r));
+                    if is_relation { skip = true; }
+                    if !meta.input.is_empty() { let _: proc_macro2::TokenStream = meta.input.parse()?; }
+                    Ok(())
+                }
             })?;
         }
 

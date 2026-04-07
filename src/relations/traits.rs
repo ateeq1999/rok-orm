@@ -3,20 +3,11 @@
 use crate::model::Model;
 use crate::query::{QueryBuilder, SqlValue};
 
-/// Implemented by models that declare relationships via `#[derive(Relations)]`.
-pub trait Relations: Model {
-    fn has_many<T: Model>(&self) -> crate::relations::HasMany<Self, T>
-    where
-        Self: Sized;
-
-    fn has_one<T: Model>(&self) -> crate::relations::HasOne<Self, T>
-    where
-        Self: Sized;
-
-    fn belongs_to<T: Model>(&self) -> crate::relations::BelongsTo<Self, T>
-    where
-        Self: Sized;
-}
+/// Marker trait for models that declare relationships via `#[derive(Relations)]`.
+///
+/// The derive macro generates named relation accessor methods (e.g. `fn posts(&self) -> HasMany<...>`)
+/// for each field annotated with `#[model(has_many(T))]`, `#[model(has_one(T))]`, etc.
+pub trait Relations: Model {}
 
 /// Type-erased interface to build a child query from a parent ID.
 pub trait Relation<P: Model, C: Model> {

@@ -4,7 +4,7 @@ use heck::ToSnakeCase;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields};
+use syn::{Data, DeriveInput, Fields, Token, parse::Parse};
 
 pub fn get_type_name(ty: &syn::Type) -> String {
     match ty {
@@ -111,6 +111,46 @@ pub fn derive_relations(input: DeriveInput) -> syn::Result<TokenStream> {
                         }
                     });
                     Ok(())
+                } else if meta.path.is_ident("has_many_through") {
+                    // #[model(has_many_through(Target, Through))]
+                    let args;
+                    syn::parenthesized!(args in meta.input);
+                    let target: syn::Type = args.parse()?;
+                    let _comma: Token![,] = args.parse()?;
+                    let through: syn::Type = args.parse()?;
+                    let through_name = get_type_name(&through);
+                    let first_key = format!("{}_id", struct_name.to_string().to_snake_case());
+                    let second_key = format!("{}_id", through_name.to_snake_case());
+                    relations_impls.push(quote! {
+                        fn #field_ident(&self) -> ::rok_orm::relations::HasManyThrough<Self, #through, #target> {
+                            ::rok_orm::relations::HasManyThrough::new(
+                                #through::table_name(), #through::primary_key(),
+                                #first_key, #second_key,
+                                #target::table_name(),
+                            )
+                        }
+                    });
+                    Ok(())
+                } else if meta.path.is_ident("has_one_through") {
+                    // #[model(has_one_through(Target, Through))]
+                    let args;
+                    syn::parenthesized!(args in meta.input);
+                    let target: syn::Type = args.parse()?;
+                    let _comma: Token![,] = args.parse()?;
+                    let through: syn::Type = args.parse()?;
+                    let through_name = get_type_name(&through);
+                    let first_key = format!("{}_id", struct_name.to_string().to_snake_case());
+                    let second_key = format!("{}_id", through_name.to_snake_case());
+                    relations_impls.push(quote! {
+                        fn #field_ident(&self) -> ::rok_orm::relations::HasOneThrough<Self, #through, #target> {
+                            ::rok_orm::relations::HasOneThrough::new(
+                                #through::table_name(), #through::primary_key(),
+                                #first_key, #second_key,
+                                #target::table_name(),
+                            )
+                        }
+                    });
+                    Ok(())
                 } else {
                     Err(meta.error("unknown relation type"))
                 }
@@ -119,7 +159,8 @@ pub fn derive_relations(input: DeriveInput) -> syn::Result<TokenStream> {
     }
 
     let expanded = quote! {
-        impl #impl_generics ::rok_orm::Relations for #struct_name #ty_generics #where_clause {
+        impl #impl_generics ::rok_orm::Relations for #struct_name #ty_generics #where_clause {}
+        impl #impl_generics #struct_name #ty_generics #where_clause {
             #(#relations_impls)*
         }
     };

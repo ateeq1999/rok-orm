@@ -62,7 +62,41 @@ pub struct TimestampedUser {
     pub updated_at: String,
 }
 
-// ΓöÇΓöÇ table names ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── through relations ─────────────────────────────────────────────────────────
+
+#[derive(Model)]
+pub struct Country { pub id: i64, pub name: String }
+
+#[derive(Model)]
+pub struct Post { pub id: i64, pub user_id: i64, pub country_id: i64, pub title: String }
+
+// Through-relation test uses struct named exactly like the data model
+// so that FK derivation (country_id) works correctly.
+#[derive(Model, rok_orm_macros::Relations)]
+#[model(table = "countries")]
+pub struct CountryModel {
+    pub id: i64,
+    #[model(has_many_through(Post, User))]
+    pub _posts: std::marker::PhantomData<Post>,
+}
+
+#[test]
+fn has_many_through_macro_generates_join_query() {
+    let rel = CountryModel { id: 1, _posts: std::marker::PhantomData }._posts();
+    let (sql, params) = rel.query_for(1i64.into()).to_sql();
+    assert!(sql.contains("INNER JOIN users ON users.id = posts.user_id"), "sql: {sql}");
+    assert!(sql.contains("WHERE users.country_model_id = $1"), "sql: {sql}");
+    assert_eq!(params.len(), 1);
+}
+
+#[test]
+fn has_many_through_macro_table_names() {
+    let rel = CountryModel { id: 2, _posts: std::marker::PhantomData }._posts();
+    let (sql, _) = rel.query_for(2i64.into()).to_sql();
+    assert!(sql.contains("FROM posts"), "sql: {sql}");
+}
+
+// ── table names ──────────────────────────────────────────────────────────────
 
 #[test]
 fn table_name_simple() {
