@@ -69,6 +69,9 @@ pub use relations::eager::{BelongsToEager, HasManyEager, HasOneEager};
 pub mod pagination;
 pub use pagination::{Page, PaginationOptions};
 
+pub mod cursor;
+pub use cursor::{CursorPage, CursorResult};
+
 pub mod scopes;
 pub mod observer;
 pub mod global_scope;

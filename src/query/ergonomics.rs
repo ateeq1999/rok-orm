@@ -1,6 +1,6 @@
 //! Developer ergonomics: `when`, `tap`, `dd`, raw clause variants for [`QueryBuilder`].
 
-use crate::query::QueryBuilder;
+use crate::query::{QueryBuilder, SqlValue};
 
 impl<T> QueryBuilder<T> {
     // ── conditional builder ──────────────────────────────────────────────────
@@ -124,6 +124,35 @@ impl<T> QueryBuilder<T> {
     /// Add a raw `HAVING` expression (alias that mirrors `having()`).
     pub fn having_raw(self, expr: &str) -> Self {
         self.having(expr)
+    }
+
+    // ── cursor pagination ────────────────────────────────────────────────────
+
+    /// Apply cursor-based pagination constraints.
+    ///
+    /// If `after_id` is `Some(n)`, adds `WHERE id > n`. Sets `LIMIT limit + 1`
+    /// so callers can detect whether more records exist.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use rok_orm::QueryBuilder;
+    ///
+    /// let (sql, _) = QueryBuilder::<()>::new("posts")
+    ///     .order_by_desc("id")
+    ///     .cursor_sql("id", Some(42i64), 20)
+    ///     .to_sql();
+    ///
+    /// assert!(sql.contains("id > "));
+    /// assert!(sql.contains("LIMIT 21"));
+    /// ```
+    pub fn cursor_sql(self, pk_col: &str, after_id: Option<i64>, limit: usize) -> Self {
+        let q = if let Some(id) = after_id {
+            self.where_gt(pk_col, id)
+        } else {
+            self
+        };
+        q.limit(limit + 1)
     }
 }
 
