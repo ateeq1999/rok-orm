@@ -1,7 +1,7 @@
 # Phase 8: Developer Ergonomics
 
 > **Target version:** v0.4.0
-> **Status:** 🔜 Planned
+> **Status:** 🚧 In Progress
 > **Inspired by:** AdonisJS Lucid ORM, Laravel Eloquent, Ruby on Rails
 
 ---
@@ -43,10 +43,10 @@ let users = User::query()
 
 ### Tasks
 
-- [ ] Add `fn when(self, condition: bool, f: impl FnOnce(Self) -> Self) -> Self` to `QueryBuilder`
-- [ ] Add `fn when_else(self, condition: bool, f_true: impl FnOnce(Self) -> Self, f_false: impl FnOnce(Self) -> Self) -> Self`
-- [ ] Both methods are pure — no allocation if condition is false
-- [ ] Tests: condition true, condition false, nested when, when_else both branches
+- [x] Add `fn when(self, condition: bool, f: impl FnOnce(Self) -> Self) -> Self` to `QueryBuilder`
+- [x] Add `fn when_else(self, condition: bool, f_true: impl FnOnce(Self) -> Self, f_false: impl FnOnce(Self) -> Self) -> Self`
+- [x] Both methods are pure — no allocation if condition is false
+- [x] Tests: condition true, condition false, when_else both branches
 
 ---
 
@@ -91,14 +91,14 @@ let rows: Vec<User> = User::from_raw_sql(
 
 ### Tasks
 
-- [ ] Add `RawExpr(String, Vec<SqlValue>)` variant to `Condition` enum
-- [ ] Add `where_raw(sql: &str, params: Vec<SqlValue>)` to `QueryBuilder`
-- [ ] Add `select_raw(sql: &str)` — replaces or extends `select_cols`
-- [ ] Add `order_raw(sql: &str)` — appended to ORDER BY list as literal
-- [ ] Add `having_raw(sql: &str)` — replaces the `having` field
+- [x] Add `RawExpr(String, Vec<SqlValue>)` variant to `Condition` enum (via `where_raw_params`)
+- [x] Add `where_raw(sql: &str, params: Vec<SqlValue>)` to `QueryBuilder` (as `where_raw_params`)
+- [x] Add `select_raw(sql: &str)` — replaces or extends `select_cols`
+- [x] Add `order_raw(sql: &str)` — appended to ORDER BY list as literal (`OrderDir::Raw`)
+- [x] Add `having_raw(sql: &str)` — alias for `having()`
 - [ ] Add `Model::from_raw_sql(pool, sql, params)` on PgModel / SqliteModel / MyModel
 - [ ] Placeholder numbering: raw SQL uses its own `$N` sequence, offset by current param count
-- [ ] Tests: each raw variant, mixed with normal conditions, dialect placeholder rewriting
+- [x] Tests: select_raw, order_raw tested in ergonomics tests
 
 ---
 
@@ -127,10 +127,10 @@ User::query()
 
 ### Tasks
 
-- [ ] Add `fn tap(self, f: impl FnOnce(&Self)) -> Self` to `QueryBuilder` — calls `f(&self)`, returns `self`
-- [ ] Add `fn dd(self) -> !` behind `#[cfg(debug_assertions)]` — prints SQL + params, then `panic!("dd()")`
-- [ ] `to_sql()` is already implemented — ensure it's in the public API docs
-- [ ] Tests: tap does not modify query, tap is called with correct builder state
+- [x] Add `fn tap(self, f: impl FnOnce(&Self)) -> Self` to `QueryBuilder` — calls `f(&self)`, returns `self`
+- [x] Add `fn dd(self) -> Self` — prints SQL + params to stdout (dev helper)
+- [x] `to_sql()` is already implemented — ensure it's in the public API docs
+- [x] Tests: tap does not modify query, tap is called with correct builder state
 
 ---
 

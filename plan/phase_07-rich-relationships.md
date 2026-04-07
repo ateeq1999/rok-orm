@@ -70,13 +70,13 @@ user.roles().update_pivot(&pool, role_id, &[
 
 ### Tasks
 
-- [ ] Add `ManyToMany<P, C>` struct: `pivot_table`, `foreign_key`, `related_key`, `pivot_columns`
-- [ ] Add `ManyToManyQuery<P, C>` with `attach()`, `attach_with_pivot()`, `detach()`, `detach_all()`
-- [ ] Implement `sync()` — SELECT current IDs, diff, batch INSERT missing, DELETE removed
-- [ ] Implement `toggle()` — SELECT current IDs, INSERT absent, DELETE present
-- [ ] Add `with_pivot(&[cols])` — inject pivot columns into the JOIN SELECT
+- [x] Add `ManyToMany<P, C>` struct: `pivot_table`, `foreign_key`, `related_key`, `pivot_columns`
+- [x] Add `ManyToManyQuery<P, C>` with `attach()`, `attach_with_pivot()`, `detach()`, `detach_all()`
+- [x] Implement `sync()` — SELECT current IDs, diff, batch INSERT missing, DELETE removed
+- [x] Implement `toggle()` — SELECT current IDs, INSERT absent, DELETE present
+- [x] Add `with_pivot(&[cols])` — inject pivot columns into the JOIN SELECT
 - [ ] Add `PivotRow` wrapper struct holding the related model + `HashMap<String, SqlValue>` pivot data
-- [ ] Add `update_pivot()` — UPDATE pivot table WHERE fk = ? AND rfk = ?
+- [x] Add `update_pivot()` — UPDATE pivot table WHERE fk = ? AND rfk = ?
 - [ ] Extend `#[model(many_to_many(...))]` macro attribute parser
 - [ ] Tests: attach, detach, sync, toggle, with_pivot, update_pivot for PG + SQLite
 
@@ -123,8 +123,8 @@ WHERE users.country_id = $1
 
 ### Tasks
 
-- [ ] Add `HasManyThrough<P, T, C>` struct (Parent, Through, Child)
-- [ ] Generate INNER JOIN SQL with parent FK in the WHERE clause
+- [x] Add `HasManyThrough<P, T, C>` struct (Parent, Through, Child)
+- [x] Generate INNER JOIN SQL with parent FK in the WHERE clause
 - [ ] Add `has_many_through(...)` macro attribute
 - [ ] Support eager loading via `.with("posts")` on a Country query
 - [ ] Tests: basic fetch, with filters, eager load
@@ -157,8 +157,8 @@ let owner = mechanic.car_owner().get(&pool).await?;
 
 ### Tasks
 
-- [ ] Add `HasOneThrough<P, T, C>` struct
-- [ ] Generate INNER JOIN with LIMIT 1
+- [x] Add `HasOneThrough<P, T, C>` struct
+- [x] Generate INNER JOIN with LIMIT 1
 - [ ] Add `has_one_through(...)` macro attribute
 - [ ] Tests: fetch present, fetch absent (None)
 
@@ -373,8 +373,9 @@ WHERE (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) > 5
 ### Tasks
 
 - [ ] Add `CountOp` enum: `Equal`, `NotEqual`, `GreaterThan`, `GreaterThanOrEqual`, `LessThan`, `LessThanOrEqual`
-- [ ] Add `where_has(rel, closure)` to QueryBuilder → `WHERE EXISTS (...)`
-- [ ] Add `where_doesnt_have(rel, closure?)` → `WHERE NOT EXISTS (...)`
+- [x] Add `where_has(rel, closure)` to QueryBuilder → `WHERE EXISTS (...)`
+- [x] Add `where_doesnt_have(rel, closure?)` → `WHERE NOT EXISTS (...)`
+- [x] Add `where_has_raw` / `where_doesnt_have_raw` for raw subquery strings
 - [ ] Add `where_has_count(rel, n, CountOp)` → subquery with count comparison
 - [ ] Integrate with relation registry (each model exposes its relation sub-query builders via macro)
 - [ ] Tests: each variant, with and without closure, PG + SQLite
@@ -450,9 +451,9 @@ let user = User::update_or_create(&pool,
 
 ### Tasks
 
-- [ ] Add `first_or_create(pool, search, defaults)` to PgModel / SqliteModel / MyModel
+- [x] Add `first_or_create(pool, search, defaults)` to PgModel / SqliteModel / MyModel
 - [ ] Add `first_or_new(search, defaults) -> Self` (sync, no pool)
-- [ ] Add `update_or_create(pool, search, values)` — UPDATE if found, INSERT if not
+- [x] Add `update_or_create(pool, search, values)` — UPDATE if found, INSERT if not
 - [ ] Tests: create path, find path, update path
 
 ---

@@ -11,7 +11,7 @@
 | [1–6](./phase_01-foundation-and-core.md) | Foundation & Core (all prior work) | v0.1–0.3 | ✅ Complete |
 | — | File-size refactor (300-line rule enforced) | v0.4.0 | ✅ Complete |
 | [7](./phase_07-rich-relationships.md) | Rich Relationships | v0.4.0 | 🚧 In Progress |
-| [8](./phase_08-developer-ergonomics.md) | Developer Ergonomics | v0.4.0 | 🔜 Planned |
+| [8](./phase_08-developer-ergonomics.md) | Developer Ergonomics | v0.4.0 | 🚧 In Progress |
 | [9](./phase_09-schema-and-migrations.md) | Schema Builder & Migrations | v0.5.0 | 🔜 Planned |
 | [10](./phase_10-advanced-query.md) | Advanced Query Features | v0.5.0 | 🔜 Planned |
 | [11](./phase_11-casting-and-serialization.md) | Model Casting & Serialization | v0.6.0 | 🔜 Planned |
