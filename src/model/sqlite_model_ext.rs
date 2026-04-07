@@ -128,6 +128,48 @@ pub trait SqliteModelExt: SqliteModel {
     {
         sqlite::update_all(pool, builder, data).await
     }
+
+    async fn first_or_create(
+        pool: &SqlitePool,
+        conditions: &[(&str, SqlValue)],
+        data: &[(&str, SqlValue)],
+    ) -> Result<Self, sqlx::Error>
+    where Self: Sized,
+    {
+        let mut qb = Self::query();
+        for (col, val) in conditions { qb = qb.where_eq(col, val.clone()); }
+        if let Some(existing) = sqlite::fetch_optional(pool, qb).await? {
+            return Ok(existing);
+        }
+        let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
+        for row in data {
+            if !insert_data.iter().any(|(c, _)| c == &row.0) { insert_data.push(*row); }
+        }
+        sqlite::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
+    }
+
+    async fn update_or_create(
+        pool: &SqlitePool,
+        conditions: &[(&str, SqlValue)],
+        data: &[(&str, SqlValue)],
+    ) -> Result<Self, sqlx::Error>
+    where Self: Sized,
+    {
+        let mut qb = Self::query();
+        for (col, val) in conditions { qb = qb.where_eq(col, val.clone()); }
+        if let Some(_existing) = sqlite::fetch_optional::<Self>(pool, qb.clone()).await? {
+            sqlite::update_all(pool, qb, data).await?;
+            let mut qb2 = Self::query();
+            for (col, val) in conditions { qb2 = qb2.where_eq(col, val.clone()); }
+            return sqlite::fetch_optional(pool, qb2).await?
+                .ok_or_else(|| sqlx::Error::RowNotFound);
+        }
+        let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
+        for row in data {
+            if !insert_data.iter().any(|(c, _)| c == &row.0) { insert_data.push(*row); }
+        }
+        sqlite::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
+    }
 }
 
 impl<T> SqliteModelExt for T

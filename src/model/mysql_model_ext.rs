@@ -154,6 +154,48 @@ pub trait MyModelExt: MyModel {
         );
         mysql::execute(pool, &sql, params).await
     }
+
+    async fn first_or_create(
+        pool: &MyPool,
+        conditions: &[(&str, SqlValue)],
+        data: &[(&str, SqlValue)],
+    ) -> Result<Self, sqlx::Error>
+    where Self: Sized,
+    {
+        let mut qb = Self::query();
+        for (col, val) in conditions { qb = qb.where_eq(col, val.clone()); }
+        if let Some(existing) = mysql::fetch_optional(pool, qb).await? {
+            return Ok(existing);
+        }
+        let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
+        for row in data {
+            if !insert_data.iter().any(|(c, _)| c == &row.0) { insert_data.push(*row); }
+        }
+        mysql::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
+    }
+
+    async fn update_or_create(
+        pool: &MyPool,
+        conditions: &[(&str, SqlValue)],
+        data: &[(&str, SqlValue)],
+    ) -> Result<Self, sqlx::Error>
+    where Self: Sized,
+    {
+        let mut qb = Self::query();
+        for (col, val) in conditions { qb = qb.where_eq(col, val.clone()); }
+        if let Some(_existing) = mysql::fetch_optional::<Self>(pool, qb.clone()).await? {
+            mysql::update_all(pool, qb, data).await?;
+            let mut qb2 = Self::query();
+            for (col, val) in conditions { qb2 = qb2.where_eq(col, val.clone()); }
+            return mysql::fetch_optional(pool, qb2).await?
+                .ok_or_else(|| sqlx::Error::RowNotFound);
+        }
+        let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
+        for row in data {
+            if !insert_data.iter().any(|(c, _)| c == &row.0) { insert_data.push(*row); }
+        }
+        mysql::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
+    }
 }
 
 impl<T> MyModelExt for T where T: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {}
