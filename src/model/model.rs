@@ -131,6 +131,14 @@ pub trait Model: Sized {
         None
     }
 
+    /// Compare two model instances by value equality.
+    ///
+    /// Requires `Self: PartialEq`. For models with `#[derive(PartialEq)]`,
+    /// this compares all fields. For a PK-only comparison, use `is_same_pk()`.
+    fn is(&self, other: &Self) -> bool where Self: PartialEq {
+        self == other
+    }
+
     fn find(id: impl Into<crate::query::SqlValue>) -> QueryBuilder<Self> {
         Self::query().where_eq(Self::primary_key(), id)
     }
