@@ -124,63 +124,46 @@ pub trait Model: Sized {
         crate::observer::ObserverRegistry::observe::<Self, O>(observer);
     }
 
-    /// Run `f` with timestamp injection suppressed for this thread.
-    ///
-    /// Useful when you want to update a record without touching `updated_at`.
-    fn without_timestamps<F, R>(f: F) -> R
-    where F: FnOnce() -> R,
-    {
+    /// Run `f` with timestamp injection suppressed. Useful for updates without touching `updated_at`.
+    fn without_timestamps<F, R>(f: F) -> R where F: FnOnce() -> R {
         TIMESTAMPS_MUTED.with(|flag| flag.set(true));
         let result = f();
         TIMESTAMPS_MUTED.with(|flag| flag.set(false));
         result
     }
 
-    /// Async version of `without_timestamps` — keeps the flag set while the future is polled.
+    /// Async version: keeps the flag set while the future is polled.
     async fn without_timestamps_async<F, Fut, R>(f: F) -> R
-    where F: FnOnce() -> Fut, Fut: std::future::Future<Output = R>,
-    {
+    where F: FnOnce() -> Fut, Fut: std::future::Future<Output = R> {
         TIMESTAMPS_MUTED.with(|flag| flag.set(true));
         let result = f().await;
         TIMESTAMPS_MUTED.with(|flag| flag.set(false));
         result
     }
 
-    /// Run `f` with model hook / observer dispatch suppressed for this thread.
-    fn without_events<F, R>(f: F) -> R
-    where F: FnOnce() -> R,
-    {
+    /// Run `f` with model observer dispatch suppressed.
+    fn without_events<F, R>(f: F) -> R where F: FnOnce() -> R {
         EVENTS_MUTED.with(|flag| flag.set(true));
         let result = f();
         EVENTS_MUTED.with(|flag| flag.set(false));
         result
     }
 
-    /// Async version of `without_events` — keeps the flag set while the future is polled.
+    /// Async version: keeps the flag set while the future is polled.
     async fn without_events_async<F, Fut, R>(f: F) -> R
-    where F: FnOnce() -> Fut, Fut: std::future::Future<Output = R>,
-    {
+    where F: FnOnce() -> Fut, Fut: std::future::Future<Output = R> {
         EVENTS_MUTED.with(|flag| flag.set(true));
         let result = f().await;
         EVENTS_MUTED.with(|flag| flag.set(false));
         result
     }
 
-    /// Generate a new unique primary key value, or `None` for auto-increment.
-    ///
-    /// Override this in models with UUID or ULID primary keys.
-    /// The executor will inject the returned value into INSERT data when `Some`.
-    fn new_unique_id() -> Option<crate::query::SqlValue> {
-        None
-    }
+    /// Generate a new unique primary key, or `None` for auto-increment.
+    /// Override for UUID/ULID primary keys; the executor injects the value on INSERT.
+    fn new_unique_id() -> Option<crate::query::SqlValue> { None }
 
-    /// Compare two model instances by value equality.
-    ///
-    /// Requires `Self: PartialEq`. For models with `#[derive(PartialEq)]`,
-    /// this compares all fields. For a PK-only comparison, use `is_same_pk()`.
-    fn is(&self, other: &Self) -> bool where Self: PartialEq {
-        self == other
-    }
+    /// Compare two model instances by value equality (requires `Self: PartialEq`).
+    fn is(&self, other: &Self) -> bool where Self: PartialEq { self == other }
 
     /// Merge `conditions` + `data` into a field list for building a new unsaved record.
     /// Duplicate keys from `data` that already appear in `conditions` are ignored.
@@ -292,5 +275,22 @@ mod tests {
         assert_eq!(merged.len(), 2); // email + name (no duplicate)
         assert!(merged.iter().any(|(k, _)| *k == "email"));
         assert!(merged.iter().any(|(k, _)| *k == "name"));
+    }
+
+    #[test]
+    fn is_compares_by_value() {
+        struct Cmp { val: i64 }
+        impl Model for Cmp {
+            fn table_name() -> &'static str { "cmp" }
+            fn columns() -> &'static [&'static str] { &["val"] }
+        }
+        impl PartialEq for Cmp {
+            fn eq(&self, other: &Self) -> bool { self.val == other.val }
+        }
+        let a = Cmp { val: 1 };
+        let b = Cmp { val: 1 };
+        let c = Cmp { val: 2 };
+        assert!(a.is(&b));
+        assert!(!a.is(&c));
     }
 }
