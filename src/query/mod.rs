@@ -5,6 +5,7 @@ mod ergonomics;
 mod sql_gen;
 mod sql_write;
 mod subquery;
+mod with_agg;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

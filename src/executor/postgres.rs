@@ -288,15 +288,6 @@ pub async fn exists<T>(
     row.try_get::<bool, _>(0)
 }
 
-#[allow(dead_code)]
-pub async fn pluck<T>(
-    _pool: &PgPool,
-    _builder: QueryBuilder<T>,
-    _column: &str,
-) -> Result<Vec<SqlValue>, sqlx::Error> {
-    unimplemented!("pluck requires concrete types; use a typed query instead")
-}
-
 pub async fn update_all<T>(
     pool: &PgPool,
     builder: QueryBuilder<T>,
