@@ -218,13 +218,14 @@ cursor = base64(json!({"created_at": "2026-01-01T00:00:00Z", "id": 42}))
 
 ### Tasks
 
-- [ ] Add `CursorPage` struct
-- [ ] Add `CursorResult<T>` struct
-- [ ] Add `async fn cursor_paginate(pool, cursor_page) -> OrmResult<CursorResult<T>>` to `QueryBuilder`
+- [x] Add `CursorPage { after: Option<i64>, limit: usize }` struct
+- [x] Add `CursorResult<T> { data, next_cursor, has_more }` struct + `from_rows()`
+- [x] `QueryBuilder::cursor_sql(pk_col, after_id, limit)` — apply WHERE id > cursor + LIMIT n+1
+- [ ] Add `async fn cursor_paginate(pool, cursor_page) -> OrmResult<CursorResult<T>>` to PgModelExt
 - [ ] Decode incoming cursor: base64 → JSON → extract column values → inject as WHERE conditions
 - [ ] Encode outgoing cursor: take last row's ORDER BY values → JSON → base64
-- [ ] Fetch `limit + 1` rows; if count > limit, set `has_more = true`, drop last
-- [ ] Tests: first page, subsequent pages, last page (`has_more = false`), empty result
+- [x] Fetch `limit + 1` rows; `from_rows()` handles trimming and `has_more`
+- [x] Tests: first page (None cursor), has_more true, has_more false, cursor_sql generates correct SQL
 
 ---
 
