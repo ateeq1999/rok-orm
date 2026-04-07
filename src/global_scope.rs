@@ -43,10 +43,11 @@ pub trait GlobalScope<M: Model>: Send + Sync + 'static {
 
 // ── Type-erased scope entry ─────────────────────────────────────────────────
 
+type ErasedApply = Box<dyn Fn(Box<dyn Any + Send>) -> Box<dyn Any + Send> + Send + Sync>;
+
 struct ScopeEntry {
     scope_type_id: TypeId,
-    /// Apply fn: takes and returns a `Box<dyn Any + Send>` wrapping `QueryBuilder<M>`.
-    apply: Box<dyn Fn(Box<dyn Any + Send>) -> Box<dyn Any + Send> + Send + Sync>,
+    apply: ErasedApply,
 }
 
 // ── Registry ────────────────────────────────────────────────────────────────

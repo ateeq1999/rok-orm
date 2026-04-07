@@ -213,7 +213,7 @@ impl<T> QueryBuilder<T> {
     }
 
     pub fn paginate(mut self, page: i64, per_page: i64) -> Self {
-        let per_page = per_page.max(1).min(100);
+        let per_page = per_page.clamp(1, 100);
         let offset = ((page.max(1) - 1) * per_page) as usize;
         self.limit_val = Some(per_page as usize);
         self.offset_val = Some(offset);

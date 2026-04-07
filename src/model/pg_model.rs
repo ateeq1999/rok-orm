@@ -180,6 +180,16 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         Ok(row)
     }
 
+    /// Find a soft-deleted record by PK (includes trashed records).
+    fn find_trashed_by_pk(
+        pool: &PgPool,
+        id: impl Into<SqlValue> + Send,
+    ) -> impl std::future::Future<Output = Result<Option<Self>, sqlx::Error>> + Send
+    where Self: Sized,
+    {
+        postgres::fetch_optional(pool, Self::find(id).with_trashed())
+    }
+
     fn restore(
         pool: &PgPool,
         id: impl Into<SqlValue> + Send,

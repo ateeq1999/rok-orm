@@ -198,6 +198,16 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
         Ok(row)
     }
 
+    /// Find a soft-deleted record by PK (includes trashed records).
+    fn find_trashed_by_pk(
+        pool: &SqlitePool,
+        id: impl Into<SqlValue> + Send,
+    ) -> impl std::future::Future<Output = Result<Option<Self>, sqlx::Error>> + Send
+    where Self: Sized,
+    {
+        sqlite::fetch_optional(pool, Self::find(id).with_trashed())
+    }
+
     fn restore(
         pool: &SqlitePool,
         id: impl Into<SqlValue> + Send,

@@ -7,9 +7,9 @@ use crate::query::QueryBuilder;
 
 thread_local! {
     /// When set, executors skip injecting `created_at`/`updated_at` timestamps.
-    static TIMESTAMPS_MUTED: Cell<bool> = Cell::new(false);
+    static TIMESTAMPS_MUTED: Cell<bool> = const { Cell::new(false) };
     /// When set, executors skip dispatching model hooks / observer events.
-    static EVENTS_MUTED: Cell<bool> = Cell::new(false);
+    static EVENTS_MUTED: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Returns `true` if timestamp injection is currently muted for this thread.
@@ -22,7 +22,7 @@ pub fn events_muted() -> bool {
     EVENTS_MUTED.with(|f| f.get())
 }
 
-pub trait Model: Sized {
+#[allow(async_fn_in_trait)] pub trait Model: Sized {
     fn table_name() -> &'static str;
 
     fn primary_key() -> &'static str {

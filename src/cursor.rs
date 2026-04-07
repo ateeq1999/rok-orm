@@ -26,7 +26,7 @@
 const B64: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 fn b64_encode(input: &[u8]) -> String {
-    let mut out = String::with_capacity((input.len() * 4 + 2) / 3);
+    let mut out = String::with_capacity((input.len() * 4).div_ceil(3));
     for chunk in input.chunks(3) {
         let b0 = chunk[0] as u32;
         let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
@@ -47,7 +47,7 @@ fn b64_decode(input: &str) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(bytes.len() * 3 / 4);
     for chunk in bytes.chunks(4) {
         let v: Vec<u8> = chunk.iter().map(|&b| table[b as usize]).collect();
-        if v.iter().any(|&x| x == 0xff) { return None; }
+        if v.contains(&0xff) { return None; }
         let n = ((v[0] as u32) << 18) | ((v[1] as u32) << 12)
               | ((v.get(2).copied().unwrap_or(0) as u32) << 6)
               | (v.get(3).copied().unwrap_or(0) as u32);

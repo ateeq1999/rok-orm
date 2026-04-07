@@ -25,7 +25,7 @@
 
 use std::any::TypeId;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 // ── ModelObserver trait ─────────────────────────────────────────────────────
 

@@ -17,7 +17,9 @@
 //! AuditLog::all(pool).await?;
 //! ```
 
+#[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
 use std::collections::HashMap;
+#[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
 use std::sync::{OnceLock, RwLock};
 
 // ── PostgreSQL pool registry ────────────────────────────────────────────────

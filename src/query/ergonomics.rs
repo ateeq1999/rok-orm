@@ -1,6 +1,6 @@
 //! Developer ergonomics: `when`, `tap`, `dd`, raw clause variants for [`QueryBuilder`].
 
-use crate::query::{QueryBuilder, SqlValue};
+use crate::query::QueryBuilder;
 
 impl<T> QueryBuilder<T> {
     // ── conditional builder ──────────────────────────────────────────────────
