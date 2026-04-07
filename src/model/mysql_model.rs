@@ -203,6 +203,36 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
         mysql::force_delete(pool, builder)
     }
 
+    /// Atomically increment a column by `delta` for a given PK.
+    async fn increment(
+        pool: &MyPool,
+        id: impl Into<SqlValue> + Send,
+        column: &str,
+        delta: i64,
+    ) -> Result<u64, sqlx::Error>
+    where Self: Sized,
+    {
+        let table = Self::table_name();
+        let pk = Self::primary_key();
+        let sql = format!("UPDATE {table} SET {column} = {column} + ? WHERE {pk} = ?");
+        mysql::execute(pool, &sql, vec![SqlValue::Integer(delta), id.into()]).await
+    }
+
+    /// Atomically decrement a column by `delta` for a given PK.
+    async fn decrement(
+        pool: &MyPool,
+        id: impl Into<SqlValue> + Send,
+        column: &str,
+        delta: i64,
+    ) -> Result<u64, sqlx::Error>
+    where Self: Sized,
+    {
+        let table = Self::table_name();
+        let pk = Self::primary_key();
+        let sql = format!("UPDATE {table} SET {column} = {column} - ? WHERE {pk} = ?");
+        mysql::execute(pool, &sql, vec![SqlValue::Integer(delta), id.into()]).await
+    }
+
     /// Fetch rows using a raw SQL string with `?` placeholders.
     fn from_raw_sql(
         pool: &MyPool,
@@ -222,10 +252,7 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     ) -> Result<u64, sqlx::Error>
     where Self: Sized,
     {
-        Self::without_events(|| async move {
-            Self::update_by_pk(pool, id, data).await
-        })
-        .await
+        Self::without_events_async(|| Self::update_by_pk(pool, id, data)).await
     }
 }
 

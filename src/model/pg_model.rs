@@ -230,6 +230,48 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         postgres::force_delete(pool, builder)
     }
 
+    /// Atomically increment a column by `delta` for a given PK.
+    async fn increment(
+        pool: &PgPool,
+        id: impl Into<SqlValue> + Send,
+        column: &str,
+        delta: i64,
+    ) -> Result<u64, sqlx::Error>
+    where Self: Sized,
+    {
+        let table = Self::table_name();
+        let pk = Self::primary_key();
+        let sql = format!("UPDATE {table} SET {column} = {column} + $1 WHERE {pk} = $2");
+        postgres::execute_raw(pool, &sql, vec![SqlValue::Integer(delta), id.into()]).await
+    }
+
+    /// Atomically decrement a column by `delta` for a given PK.
+    async fn decrement(
+        pool: &PgPool,
+        id: impl Into<SqlValue> + Send,
+        column: &str,
+        delta: i64,
+    ) -> Result<u64, sqlx::Error>
+    where Self: Sized,
+    {
+        let table = Self::table_name();
+        let pk = Self::primary_key();
+        let sql = format!("UPDATE {table} SET {column} = {column} - $1 WHERE {pk} = $2");
+        postgres::execute_raw(pool, &sql, vec![SqlValue::Integer(delta), id.into()]).await
+    }
+
+    /// Increment a column without touching `updated_at`.
+    async fn increment_without_timestamps(
+        pool: &PgPool,
+        id: impl Into<SqlValue> + Send,
+        column: &str,
+        delta: i64,
+    ) -> Result<u64, sqlx::Error>
+    where Self: Sized,
+    {
+        Self::without_timestamps_async(|| Self::increment(pool, id, column, delta)).await
+    }
+
     /// Fetch rows using a raw SQL string and positional parameters (`$1`, `$2`, …).
     fn from_raw_sql(
         pool: &PgPool,
@@ -249,10 +291,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     ) -> Result<u64, sqlx::Error>
     where Self: Sized,
     {
-        Self::without_events(|| async move {
-            Self::update_by_pk(pool, id, data).await
-        })
-        .await
+        Self::without_events_async(|| Self::update_by_pk(pool, id, data)).await
     }
 }
 

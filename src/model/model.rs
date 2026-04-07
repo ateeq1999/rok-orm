@@ -110,6 +110,20 @@ pub trait Model: Sized {
         crate::global_scope::ScopeRegistry::apply_scopes::<Self>(Self::query())
     }
 
+    /// Register a global scope for this model. Convenience for `ScopeRegistry::add_scope`.
+    fn add_global_scope<S>(scope: S)
+    where Self: Send + 'static, S: crate::global_scope::GlobalScope<Self>,
+    {
+        crate::global_scope::ScopeRegistry::add_scope::<Self, S>(scope);
+    }
+
+    /// Register an observer for this model. Convenience for `ObserverRegistry::observe`.
+    fn observe<O>(observer: O)
+    where Self: 'static, O: crate::observer::ModelObserver<Self>,
+    {
+        crate::observer::ObserverRegistry::observe::<Self, O>(observer);
+    }
+
     /// Run `f` with timestamp injection suppressed for this thread.
     ///
     /// Useful when you want to update a record without touching `updated_at`.
@@ -122,12 +136,32 @@ pub trait Model: Sized {
         result
     }
 
+    /// Async version of `without_timestamps` — keeps the flag set while the future is polled.
+    async fn without_timestamps_async<F, Fut, R>(f: F) -> R
+    where F: FnOnce() -> Fut, Fut: std::future::Future<Output = R>,
+    {
+        TIMESTAMPS_MUTED.with(|flag| flag.set(true));
+        let result = f().await;
+        TIMESTAMPS_MUTED.with(|flag| flag.set(false));
+        result
+    }
+
     /// Run `f` with model hook / observer dispatch suppressed for this thread.
     fn without_events<F, R>(f: F) -> R
     where F: FnOnce() -> R,
     {
         EVENTS_MUTED.with(|flag| flag.set(true));
         let result = f();
+        EVENTS_MUTED.with(|flag| flag.set(false));
+        result
+    }
+
+    /// Async version of `without_events` — keeps the flag set while the future is polled.
+    async fn without_events_async<F, Fut, R>(f: F) -> R
+    where F: FnOnce() -> Fut, Fut: std::future::Future<Output = R>,
+    {
+        EVENTS_MUTED.with(|flag| flag.set(true));
+        let result = f().await;
         EVENTS_MUTED.with(|flag| flag.set(false));
         result
     }
@@ -148,15 +182,8 @@ pub trait Model: Sized {
         self == other
     }
 
-    /// Build a new (unsaved) instance whose fields match `conditions` + `data`,
-    /// without hitting the database.
-    ///
-    /// Returns a value with every column set to its `Default::default()` first,
-    /// then the condition and data columns are returned as a field list — the
-    /// caller decides how to construct `Self`.
-    ///
-    /// Since Rust structs don't have reflection, this returns the merged
-    /// key-value pairs for use with `create_returning` or similar.
+    /// Merge `conditions` + `data` into a field list for building a new unsaved record.
+    /// Duplicate keys from `data` that already appear in `conditions` are ignored.
     fn first_or_new<'a>(
         conditions: &[(&'a str, crate::query::SqlValue)],
         data: &[(&'a str, crate::query::SqlValue)],
