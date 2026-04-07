@@ -477,7 +477,7 @@ assert!(a.is(&b));
 
 - [ ] Add `replicate(&self) -> Self` to `Model` trait (clone + reset PK field to Default)
 - [ ] Add `to_fields(&self) -> Vec<(&'static str, SqlValue)>` — serialize all non-PK columns
-- [ ] Add `is(&self, other: &Self) -> bool` — compare table + PK values
+- [x] Add `is(&self, other: &Self) -> bool` — value equality (requires `Self: PartialEq`)
 - [ ] Tests: replicate + re-save, is() match and mismatch
 
 ---
@@ -541,9 +541,9 @@ let logs = AuditLog::all(&pool).await?;  // pool param ignored for named-connect
 
 ### Tasks
 
-- [ ] Add `connection()` method to `Model` trait (default: `"default"`)
-- [ ] Macro generates override from `#[model(connection = "...")]`
-- [ ] Add `ConnectionRegistry` — `static RwLock<HashMap<String, AnyPool>>`
+- [x] Add `connection()` method to `Model` trait (default: `"default"`)
+- [x] Macro generates override from `#[model(connection = "...")]`
+- [x] Add `ConnectionRegistry` — dialect-specific `OnceLock<RwLock<HashMap<String, Pool>>>`
 - [ ] Executor methods check `Model::connection()` and resolve pool from registry
 - [ ] Tests: register + use named connection, fallback to provided pool
 
