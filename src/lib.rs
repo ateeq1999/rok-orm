@@ -41,9 +41,11 @@ pub use query::{Condition, Dialect, Join, JoinOp, OrderDir, QueryBuilder, SqlVal
 pub mod model;
 pub use model::Model;
 #[cfg(feature = "postgres")]
-pub use model::PgModel;
+pub use model::{PgModel, PgModelExt};
 #[cfg(feature = "sqlite")]
-pub use model::SqliteModel;
+pub use model::{SqliteModel, SqliteModelExt};
+#[cfg(feature = "mysql")]
+pub use model::{MyModel, MyModelExt};
 
 // ── Executor ─────────────────────────────────────────────────────────────────
 

@@ -1,27 +1,6 @@
-﻿//! [`PgModel`] ΓÇö ergonomic async CRUD methods for any [`Model`] + [`sqlx::FromRow`] type.
+//! [`PgModel`] — core CRUD methods for any [`Model`] + [`sqlx::FromRow`] (PostgreSQL).
 //!
-//! All methods are provided as defaults; no manual implementation is required.
-//!
-//! # Example
-//!
-//! ```rust,ignore
-//! use rok_orm::{Model, PgModel, SqlValue};
-//!
-//! #[derive(Model, sqlx::FromRow)]
-//! pub struct User {
-//!     pub id: i64,
-//!     pub name: String,
-//! }
-//!
-//! let pool = sqlx::PgPool::connect(&url).await?;
-//!
-//! let all: Vec<User>    = User::all(&pool).await?;
-//! let one: Option<User> = User::find_by_pk(&pool, 1i64).await?;
-//! let n: i64            = User::count(&pool).await?;
-//! User::create(&pool, &[("name", "Alice".into())]).await?;
-//! User::update_by_pk(&pool, 1i64, &[("name", "Bob".into())]).await?;
-//! User::delete_by_pk(&pool, 1i64).await?;
-//! ```
+//! For aggregates, pagination, upsert, and advanced queries see [`PgModelExt`].
 
 use std::fmt;
 use std::fmt::Display;
@@ -32,6 +11,8 @@ use crate::query::{QueryBuilder, SqlValue};
 use sqlx::{postgres::PgRow, PgPool};
 
 use crate::executor::postgres;
+
+// ── error type ──────────────────────────────────────────────────────────────
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -48,13 +29,14 @@ impl Display for NotFoundError {
 
 impl std::error::Error for NotFoundError {}
 
+// ── PgModel ──────────────────────────────────────────────────────────────────
+
 #[allow(async_fn_in_trait)]
 pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     fn all(
         pool: &PgPool,
     ) -> impl std::future::Future<Output = Result<Vec<Self>, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::fetch_all(pool, Self::query())
     }
@@ -63,8 +45,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         pool: &PgPool,
         builder: QueryBuilder<Self>,
     ) -> impl std::future::Future<Output = Result<Vec<Self>, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::fetch_all(pool, builder)
     }
@@ -73,18 +54,13 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         pool: &PgPool,
         id: impl Into<SqlValue> + Send,
     ) -> impl std::future::Future<Output = Result<Option<Self>, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::fetch_optional(pool, Self::find(id))
     }
 
-    async fn find_or_404(
-        pool: &PgPool,
-        id: impl Into<SqlValue> + Send,
-    ) -> Result<Self, sqlx::Error>
-    where
-        Self: Sized,
+    async fn find_or_404(pool: &PgPool, id: impl Into<SqlValue> + Send) -> Result<Self, sqlx::Error>
+    where Self: Sized,
     {
         postgres::fetch_optional(pool, Self::find(id))
             .await?
@@ -92,15 +68,13 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     }
 
     async fn first(pool: &PgPool) -> Result<Option<Self>, sqlx::Error>
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::fetch_optional(pool, Self::query().limit(1)).await
     }
 
     async fn first_or_404(pool: &PgPool) -> Result<Self, sqlx::Error>
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::fetch_optional(pool, Self::query().limit(1))
             .await?
@@ -108,29 +82,25 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     }
 
     async fn get(pool: &PgPool) -> Result<Vec<Self>, sqlx::Error>
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::fetch_all(pool, Self::query()).await
     }
 
     async fn get_where(pool: &PgPool, builder: QueryBuilder<Self>) -> Result<Vec<Self>, sqlx::Error>
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::fetch_all(pool, builder).await
     }
 
     async fn count(pool: &PgPool) -> Result<i64, sqlx::Error>
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::count(pool, Self::query()).await
     }
 
     async fn count_where(pool: &PgPool, builder: QueryBuilder<Self>) -> Result<i64, sqlx::Error>
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::count(pool, builder).await
     }
@@ -139,8 +109,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         pool: &PgPool,
         data: &[(&str, SqlValue)],
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::insert::<Self>(pool, Self::table_name(), data)
     }
@@ -150,25 +119,22 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         id: impl Into<SqlValue> + Send,
         data: &[(&str, SqlValue)],
     ) -> Result<u64, sqlx::Error>
-    where
-        Self: Sized,
+    where Self: Sized,
     {
-        let mut data_with_timestamps = data.to_vec();
+        let mut d = data.to_vec();
         if Self::timestamps_enabled() {
             if let Some(col) = Self::updated_at_column() {
-                data_with_timestamps.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
+                d.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
             }
         }
-        let builder = Self::find(id);
-        postgres::update::<Self>(pool, builder, &data_with_timestamps).await
+        postgres::update::<Self>(pool, Self::find(id), &d).await
     }
 
     fn delete_by_pk(
         pool: &PgPool,
         id: impl Into<SqlValue> + Send,
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::delete(pool, Self::find(id))
     }
@@ -177,8 +143,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         pool: &PgPool,
         builder: QueryBuilder<Self>,
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::delete(pool, builder)
     }
@@ -188,8 +153,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         builder: QueryBuilder<Self>,
         data: &[(&str, SqlValue)],
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::update::<Self>(pool, builder, data)
     }
@@ -198,37 +162,31 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         pool: &PgPool,
         rows: &[Vec<(&str, SqlValue)>],
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::bulk_insert::<Self>(pool, Self::table_name(), rows)
     }
 
-    async fn create_returning(
-        pool: &PgPool,
-        data: &[(&str, SqlValue)],
-    ) -> Result<Self, sqlx::Error>
-    where
-        Self: Sized,
+    async fn create_returning(pool: &PgPool, data: &[(&str, SqlValue)]) -> Result<Self, sqlx::Error>
+    where Self: Sized,
     {
-        let mut data_with_timestamps = data.to_vec();
+        let mut d = data.to_vec();
         if Self::timestamps_enabled() {
             if let Some(col) = Self::created_at_column() {
-                data_with_timestamps.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
+                d.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
             }
             if let Some(col) = Self::updated_at_column() {
-                data_with_timestamps.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
+                d.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
             }
         }
-        postgres::insert_returning::<Self>(pool, Self::table_name(), &data_with_timestamps).await
+        postgres::insert_returning::<Self>(pool, Self::table_name(), &d).await
     }
 
     fn restore(
         pool: &PgPool,
         id: impl Into<SqlValue> + Send,
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::restore::<Self>(pool, Self::find(id))
     }
@@ -237,8 +195,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         pool: &PgPool,
         builder: QueryBuilder<Self>,
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::restore::<Self>(pool, builder)
     }
@@ -247,8 +204,7 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         pool: &PgPool,
         id: impl Into<SqlValue> + Send,
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::force_delete(pool, Self::find(id))
     }
@@ -257,168 +213,9 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         pool: &PgPool,
         builder: QueryBuilder<Self>,
     ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
-    where
-        Self: Sized,
+    where Self: Sized,
     {
         postgres::force_delete(pool, builder)
-    }
-
-    async fn paginate(
-        pool: &PgPool,
-        page: i64,
-        per_page: i64,
-    ) -> Result<crate::pagination::Page<Self>, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        let total = postgres::count(pool, Self::query()).await?;
-        let data = postgres::fetch_all(pool, Self::query().paginate(page, per_page)).await?;
-        Ok(crate::pagination::Page::new(data, total, per_page, page))
-    }
-
-    async fn paginate_where(
-        pool: &PgPool,
-        builder: QueryBuilder<Self>,
-        page: i64,
-        per_page: i64,
-    ) -> Result<crate::pagination::Page<Self>, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        let total = postgres::count(pool, builder.clone()).await?;
-        let data = postgres::fetch_all(pool, builder.paginate(page, per_page)).await?;
-        Ok(crate::pagination::Page::new(data, total, per_page, page))
-    }
-
-    async fn sum(
-        pool: &PgPool,
-        column: &str,
-    ) -> Result<Option<f64>, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::aggregate::<Self>(pool, Self::query(), "SUM", column).await
-    }
-
-    async fn avg(
-        pool: &PgPool,
-        column: &str,
-    ) -> Result<Option<f64>, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::aggregate::<Self>(pool, Self::query(), "AVG", column).await
-    }
-
-    async fn min(
-        pool: &PgPool,
-        column: &str,
-    ) -> Result<Option<f64>, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::aggregate::<Self>(pool, Self::query(), "MIN", column).await
-    }
-
-    async fn max(
-        pool: &PgPool,
-        column: &str,
-    ) -> Result<Option<f64>, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::aggregate::<Self>(pool, Self::query(), "MAX", column).await
-    }
-
-    async fn upsert(
-        pool: &PgPool,
-        data: &[(&str, SqlValue)],
-        conflict_column: &str,
-        update_columns: &[&str],
-    ) -> Result<u64, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::upsert::<Self>(pool, Self::table_name(), data, conflict_column, update_columns).await
-    }
-
-    async fn upsert_returning(
-        pool: &PgPool,
-        data: &[(&str, SqlValue)],
-        conflict_column: &str,
-        update_columns: &[&str],
-    ) -> Result<Self, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::upsert_returning::<Self>(pool, Self::table_name(), data, conflict_column, update_columns).await
-    }
-
-    async fn delete_in(
-        pool: &PgPool,
-        column: &str,
-        values: Vec<SqlValue>,
-    ) -> Result<u64, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::delete_in::<Self>(pool, column, values).await
-    }
-
-    async fn exists(pool: &PgPool) -> Result<bool, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::exists(pool, Self::query()).await
-    }
-
-    async fn exists_where(pool: &PgPool, builder: QueryBuilder<Self>) -> Result<bool, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::exists(pool, builder).await
-    }
-
-    async fn pluck(
-        pool: &PgPool,
-        column: &str,
-    ) -> Result<Vec<SqlValue>, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::pluck(pool, Self::query(), column).await
-    }
-
-    async fn pluck_where(
-        pool: &PgPool,
-        builder: QueryBuilder<Self>,
-        column: &str,
-    ) -> Result<Vec<SqlValue>, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::pluck(pool, builder, column).await
-    }
-
-    async fn update_all(
-        pool: &PgPool,
-        data: &[(&str, SqlValue)],
-    ) -> Result<u64, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::update_all(pool, Self::query(), data).await
-    }
-
-    async fn update_all_where(
-        pool: &PgPool,
-        builder: QueryBuilder<Self>,
-        data: &[(&str, SqlValue)],
-    ) -> Result<u64, sqlx::Error>
-    where
-        Self: Sized,
-    {
-        postgres::update_all(pool, builder, data).await
     }
 }
 

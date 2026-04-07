@@ -5,9 +5,11 @@ mod sql_gen;
 mod sql_write;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_advanced;
 
 pub use builder::{Dialect, Join, QueryBuilder, SoftDeleteMode};
-pub use condition::{Condition, JoinOp, SqlValue};
+pub use condition::{Condition, JoinOp, OrderDir, SqlValue};
 
 // ── shared WHERE-clause helpers ─────────────────────────────────────────────
 
