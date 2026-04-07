@@ -125,9 +125,9 @@ WHERE users.country_id = $1
 
 - [x] Add `HasManyThrough<P, T, C>` struct (Parent, Through, Child)
 - [x] Generate INNER JOIN SQL with parent FK in the WHERE clause
-- [ ] Add `has_many_through(...)` macro attribute
+- [x] Add `has_many_through(...)` macro attribute
 - [ ] Support eager loading via `.with("posts")` on a Country query
-- [ ] Tests: basic fetch, with filters, eager load
+- [x] Tests: query generation via macro (integration test)
 
 ---
 
@@ -159,7 +159,7 @@ let owner = mechanic.car_owner().get(&pool).await?;
 
 - [x] Add `HasOneThrough<P, T, C>` struct
 - [x] Generate INNER JOIN with LIMIT 1
-- [ ] Add `has_one_through(...)` macro attribute
+- [x] Add `has_one_through(...)` macro attribute
 - [ ] Tests: fetch present, fetch absent (None)
 
 ---
