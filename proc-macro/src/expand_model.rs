@@ -21,6 +21,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
     let mut guarded_cols: Vec<String> = Vec::new();
     let mut touches_rels: Vec<String> = Vec::new();
     let mut uuid_pk = false;
+    let mut ulid_pk = false;
 
     for attr in &input.attrs {
         let is_model_attr = attr.path().is_ident("model") || attr.path().is_ident("rok_orm");
@@ -62,6 +63,9 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                 Ok(())
             } else if meta.path.is_ident("uuid") {
                 uuid_pk = true;
+                Ok(())
+            } else if meta.path.is_ident("ulid") {
+                ulid_pk = true;
                 Ok(())
             } else if meta.path.is_ident("touches") {
                 let value = meta.value()?;
@@ -190,6 +194,19 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                 #[cfg(not(feature = "uuid-pk"))]
                 {
                     panic!("uuid-pk feature must be enabled to use UUID primary keys")
+                }
+            }
+        }
+    } else if ulid_pk {
+        quote! {
+            fn new_unique_id() -> Option<::rok_orm::SqlValue> {
+                #[cfg(feature = "ulid-pk")]
+                {
+                    Some(::rok_orm::SqlValue::Text(::ulid::Ulid::new().to_string()))
+                }
+                #[cfg(not(feature = "ulid-pk"))]
+                {
+                    panic!("ulid-pk feature must be enabled to use ULID primary keys")
                 }
             }
         }
