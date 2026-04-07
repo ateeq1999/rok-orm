@@ -119,48 +119,51 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
 
     let mut column_names: Vec<String> = Vec::new();
     let mut field_pk: Option<String> = None;
+    // All non-skipped (field_ident, col_name) pairs; PK excluded after loop
+    let mut all_field_pairs: Vec<(proc_macro2::Ident, String)> = Vec::new();
+    let mut pk_field_ident: Option<proc_macro2::Ident> = None;
 
     for field in fields.iter() {
-        let field_ident = match &field.ident {
-            Some(id) => id.to_string(),
+        let raw_ident = match &field.ident {
+            Some(id) => id,
             None => continue,
         };
+        let field_ident = raw_ident.to_string();
         let mut skip = false;
         let mut col_override: Option<String> = None;
         let mut is_pk = false;
 
         for attr in &field.attrs {
             let is_model_attr = attr.path().is_ident("model") || attr.path().is_ident("rok_orm");
-            if !is_model_attr {
-                continue;
-            }
+            if !is_model_attr { continue; }
             attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("skip") {
-                    skip = true;
-                    Ok(())
-                } else if meta.path.is_ident("primary_key") {
-                    is_pk = true;
-                    Ok(())
-                } else if meta.path.is_ident("column") {
+                if meta.path.is_ident("skip") { skip = true; Ok(()) }
+                else if meta.path.is_ident("primary_key") { is_pk = true; Ok(()) }
+                else if meta.path.is_ident("column") {
                     let value = meta.value()?;
                     let s: LitStr = value.parse()?;
                     col_override = Some(s.value());
                     Ok(())
-                } else {
-                    Err(meta.error("unknown model field attribute"))
-                }
+                } else { Err(meta.error("unknown model field attribute")) }
             })?;
         }
 
+        let col_name = col_override.unwrap_or(field_ident);
         if is_pk {
-            field_pk = Some(col_override.clone().unwrap_or(field_ident.clone()));
+            field_pk = Some(col_name.clone());
+            pk_field_ident = Some(raw_ident.clone());
         }
         if !skip {
-            column_names.push(col_override.unwrap_or(field_ident));
+            column_names.push(col_name.clone());
+            all_field_pairs.push((raw_ident.clone(), col_name));
         }
     }
 
-    let pk = field_pk.or(struct_pk).unwrap_or_else(|| "id".to_string());
+    let pk = field_pk.or_else(|| struct_pk.clone()).unwrap_or_else(|| "id".to_string());
+    // Filter out the PK column from to_fields output
+    let non_pk_pairs: Vec<(proc_macro2::Ident, String)> = all_field_pairs
+        .into_iter().filter(|(_, c)| *c != pk).collect();
+    let (non_pk_idents, non_pk_cols): (Vec<_>, Vec<_>) = non_pk_pairs.into_iter().unzip();
     let columns_len = column_names.len();
 
     let sd_col = soft_delete_col.as_deref().unwrap_or("deleted_at");
@@ -194,31 +197,21 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
         quote! {
             fn new_unique_id() -> Option<::rok_orm::SqlValue> {
                 #[cfg(feature = "uuid-pk")]
-                {
-                    Some(::rok_orm::SqlValue::Text(::uuid::Uuid::new_v4().to_string()))
-                }
-                #[cfg(not(feature = "uuid-pk"))]
-                {
-                    panic!("uuid-pk feature must be enabled to use UUID primary keys")
-                }
+                return Some(::rok_orm::SqlValue::Text(::uuid::Uuid::new_v4().to_string()));
+                #[allow(unreachable_code)]
+                panic!("uuid-pk feature must be enabled to use UUID primary keys")
             }
         }
     } else if ulid_pk {
         quote! {
             fn new_unique_id() -> Option<::rok_orm::SqlValue> {
                 #[cfg(feature = "ulid-pk")]
-                {
-                    Some(::rok_orm::SqlValue::Text(::ulid::Ulid::new().to_string()))
-                }
-                #[cfg(not(feature = "ulid-pk"))]
-                {
-                    panic!("ulid-pk feature must be enabled to use ULID primary keys")
-                }
+                return Some(::rok_orm::SqlValue::Text(::ulid::Ulid::new().to_string()));
+                #[allow(unreachable_code)]
+                panic!("ulid-pk feature must be enabled to use ULID primary keys")
             }
         }
-    } else {
-        quote! {}
-    };
+    } else { quote! {} };
 
     let connection_impl = if let Some(ref conn) = connection_name {
         quote! {
@@ -265,6 +258,16 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
         quote! {}
     };
 
+    let to_fields_impl = quote! {
+        fn to_fields(&self) -> Vec<(&'static str, ::rok_orm::SqlValue)> {
+            vec![ #( (#non_pk_cols, ::rok_orm::SqlValue::from(self.#non_pk_idents.clone())), )* ]
+        }
+    };
+
+    // replicate() is not generated by the macro — it requires Clone + Default on the PK field.
+    // Users can implement Model::replicate manually for Clone types.
+    let _ = pk_field_ident; // suppress unused warning
+
     let expanded = quote! {
         impl #impl_generics ::rok_orm::Model for #struct_name #ty_generics #where_clause {
             fn table_name() -> &'static str { #table }
@@ -280,6 +283,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
             #touches_impl
             #fillable_impl
             #guarded_impl
+            #to_fields_impl
         }
     };
 

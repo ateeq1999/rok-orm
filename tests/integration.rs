@@ -814,3 +814,35 @@ fn delete_in_sql_sqlite_dialect() {
     assert!(sql.contains("WHERE id IN (?, ?)"));
     assert_eq!(params.len(), 2);
 }
+
+// ── to_fields ──────────────────────────────────────────────────────────────
+
+#[test]
+fn to_fields_returns_non_pk_columns() {
+    use rok_orm::SqlValue;
+    let user = User { id: 1, name: "Alice".into(), email: "a@b.com".into() };
+    let fields = user.to_fields();
+    assert_eq!(fields.len(), 2);
+    assert!(fields.iter().any(|(k, _)| *k == "name"));
+    assert!(fields.iter().any(|(k, _)| *k == "email"));
+    // PK (id) must not appear
+    assert!(!fields.iter().any(|(k, _)| *k == "id"));
+}
+
+#[test]
+fn to_fields_respects_column_rename() {
+    use rok_orm::SqlValue;
+    let tag = Tag { tag_id: 7, name: "rust".into(), cached_count: 0 };
+    let fields = tag.to_fields();
+    // tag_name is the renamed column for `name`; cached_count is #[model(skip)]
+    assert_eq!(fields.len(), 1);
+    assert_eq!(fields[0].0, "tag_name");
+    assert_eq!(fields[0].1, SqlValue::Text("rust".into()));
+}
+
+#[test]
+fn to_fields_skips_skipped_fields() {
+    let tag = Tag { tag_id: 1, name: "x".into(), cached_count: 99 };
+    let fields = tag.to_fields();
+    assert!(!fields.iter().any(|(k, _)| *k == "cached_count"));
+}
