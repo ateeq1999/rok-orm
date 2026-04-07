@@ -40,6 +40,7 @@ pub use query::{Condition, CountOp, Dialect, Join, JoinOp, OrderDir, QueryBuilde
 
 pub mod model;
 pub use model::{Model, Prunable};
+pub use model::{timestamps_muted, events_muted};
 #[cfg(feature = "postgres")]
 pub use model::{PgModel, PgModelExt};
 #[cfg(feature = "sqlite")]

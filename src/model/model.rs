@@ -1,6 +1,26 @@
-﻿//! [`Model`] trait ΓÇö implemented automatically by `#[derive(Model)]`.
+﻿//! [`Model`] trait — implemented automatically by `#[derive(Model)]`.
 
+use std::cell::Cell;
 use crate::query::QueryBuilder;
+
+// ── Thread-local flags ──────────────────────────────────────────────────────
+
+thread_local! {
+    /// When set, executors skip injecting `created_at`/`updated_at` timestamps.
+    static TIMESTAMPS_MUTED: Cell<bool> = Cell::new(false);
+    /// When set, executors skip dispatching model hooks / observer events.
+    static EVENTS_MUTED: Cell<bool> = Cell::new(false);
+}
+
+/// Returns `true` if timestamp injection is currently muted for this thread.
+pub fn timestamps_muted() -> bool {
+    TIMESTAMPS_MUTED.with(|f| f.get())
+}
+
+/// Returns `true` if event/hook dispatch is currently muted for this thread.
+pub fn events_muted() -> bool {
+    EVENTS_MUTED.with(|f| f.get())
+}
 
 pub trait Model: Sized {
     fn table_name() -> &'static str;
@@ -66,6 +86,28 @@ pub trait Model: Sized {
         } else {
             builder
         }
+    }
+
+    /// Run `f` with timestamp injection suppressed for this thread.
+    ///
+    /// Useful when you want to update a record without touching `updated_at`.
+    fn without_timestamps<F, R>(f: F) -> R
+    where F: FnOnce() -> R,
+    {
+        TIMESTAMPS_MUTED.with(|flag| flag.set(true));
+        let result = f();
+        TIMESTAMPS_MUTED.with(|flag| flag.set(false));
+        result
+    }
+
+    /// Run `f` with model hook / observer dispatch suppressed for this thread.
+    fn without_events<F, R>(f: F) -> R
+    where F: FnOnce() -> R,
+    {
+        EVENTS_MUTED.with(|flag| flag.set(true));
+        let result = f();
+        EVENTS_MUTED.with(|flag| flag.set(false));
+        result
     }
 
     /// Generate a new unique primary key value, or `None` for auto-increment.
@@ -140,5 +182,23 @@ mod tests {
         let data = [("name", SqlValue::Text("x".into())), ("id", SqlValue::Integer(1))];
         let filtered = Open::filter_fillable(&data);
         assert_eq!(filtered.len(), 2);
+    }
+
+    #[test]
+    fn without_timestamps_sets_and_resets_flag() {
+        assert!(!timestamps_muted());
+        MockModel::without_timestamps(|| {
+            assert!(timestamps_muted());
+        });
+        assert!(!timestamps_muted());
+    }
+
+    #[test]
+    fn without_events_sets_and_resets_flag() {
+        assert!(!events_muted());
+        MockModel::without_events(|| {
+            assert!(events_muted());
+        });
+        assert!(!events_muted());
     }
 }

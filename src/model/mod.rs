@@ -13,7 +13,7 @@ mod mysql_model;
 #[cfg(feature = "mysql")]
 mod mysql_model_ext;
 
-pub use model::Model;
+pub use model::{Model, timestamps_muted, events_muted};
 pub use prunable::Prunable;
 #[cfg(feature = "postgres")]
 pub use pg_model::PgModel;
