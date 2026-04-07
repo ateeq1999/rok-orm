@@ -263,7 +263,7 @@ let user = User::create_returning(&pool, &[
 - [x] Add `guarded() -> &'static [&'static str]` to `Model` trait (default: empty = nothing guarded)
 - [x] Macro generates overrides from `#[model(fillable = [...])]` / `#[model(guarded = [...])]`
 - [x] Add `filter_fillable(data: &[(&str, SqlValue)]) -> Vec<(&str, SqlValue)>` as a Model trait method
-- [ ] Apply filter in `create`, `create_returning`, `bulk_create`, `update_by_pk`, `update_where`
+- [x] Apply filter in `create`, `create_returning`, `bulk_create`, `update_by_pk`, `update_where` (PgModel)
 - [x] Tests: fillable allows only listed cols, guarded blocks listed cols, no filtering when both empty
 
 ---
@@ -377,8 +377,8 @@ Comment::update_by_pk(&pool, comment_id, &[("body", "edited".into())]).await?;
 
 ### Tasks
 
-- [ ] Add `touches() -> &'static [&'static str]` to `Model` trait (default: empty slice)
-- [ ] Macro generates override from `#[model(touches = [...])]`
+- [x] Add `touches() -> &'static [&'static str]` to `Model` trait (default: empty slice)
+- [x] Macro generates override from `#[model(touches = [...])]`
 - [ ] Each string in `touches` is a relation name — resolve its FK column and parent table
 - [ ] After each create/update/delete, run: `UPDATE {parent_table} SET updated_at = NOW() WHERE {pk} = {fk_value}`
 - [ ] Tests: touches updates parent, multiple parents, no-op when touches is empty

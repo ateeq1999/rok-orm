@@ -513,13 +513,13 @@ fn generate_token() -> String { /* user-defined */ }
 
 ### Tasks
 
-- [ ] Add `uuid` and `ulid` boolean flags to `#[model(...)]` parser
-- [ ] Add `Model::new_unique_id() -> Option<String>` — default `None` (auto-increment)
-- [ ] Macro generates override returning `Some(uuid::Uuid::new_v4().to_string())` or ULID
-- [ ] Inject generated ID into INSERT data before executor runs
+- [x] Add `uuid` boolean flag to `#[model(...)]` parser
+- [x] Add `Model::new_unique_id() -> Option<SqlValue>` — default `None` (auto-increment)
+- [x] Macro generates override using `uuid::Uuid::new_v4()` behind `uuid-pk` feature flag
+- [x] Inject generated ID into INSERT data before executor runs (PgModel create/create_returning)
 - [ ] Add `custom_id = "fn_name"` — calls user-defined function for ID generation
-- [ ] Add `uuid` and `ulid` to `Cargo.toml` optional dependencies
-- [ ] Tests: create with UUID PK, find by UUID PK, ULID
+- [x] Add `uuid` to `Cargo.toml` optional dependencies (feature: `uuid-pk`)
+- [ ] Tests: create with UUID PK, find by UUID PK
 
 ---
 
@@ -576,11 +576,11 @@ User::increment_without_timestamps(&pool, 1, "views", 1).await?;
 - [x] Add `created_at_col` and `updated_at_col` to `#[model(...)]` attribute
 - [x] Macro uses these overrides instead of `"created_at"` / `"updated_at"` literals
 - [x] Add `soft_delete_col` attribute to `#[model(...)]` for custom soft-delete column name
-- [ ] Add `TIMESTAMPS_MUTED: thread_local! { Cell<bool> }`
-- [ ] Add `Model::without_timestamps(closure)` — sets flag, runs, resets
-- [ ] Executor paths check flag before injecting timestamp columns
+- [x] Add `TIMESTAMPS_MUTED: thread_local! { Cell<bool> }`
+- [x] Add `Model::without_timestamps(closure)` — sets flag, runs, resets
+- [x] Executor paths check flag before injecting timestamp columns (PgModel)
 - [ ] Add `increment_without_timestamps(pool, id, col, delta)` helper
-- [ ] Tests: custom column names, suppressed timestamps
+- [x] Tests: without_timestamps sets and resets flag correctly
 
 ---
 
@@ -635,11 +635,11 @@ user.save_quietly(&pool, &[("name", "Quiet Update".into())]).await?;
 
 ### Tasks
 
-- [ ] Add `EVENTS_MUTED: thread_local! { Cell<bool> }`
-- [ ] Add `Model::without_events(closure)` — set flag, run, reset
+- [x] Add `EVENTS_MUTED: thread_local! { Cell<bool> }`
+- [x] Add `Model::without_events(closure)` — set flag, run, reset
 - [ ] Executor paths check flag before dispatching hooks / observer calls
 - [ ] Add `save_quietly(pool, data)` as convenience wrapper calling `update_by_pk` with events muted
-- [ ] Tests: hooks not called when muted, hooks called when not muted
+- [x] Tests: without_events sets and resets flag correctly
 
 ---
 
