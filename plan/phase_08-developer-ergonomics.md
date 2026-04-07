@@ -259,12 +259,12 @@ let user = User::create_returning(&pool, &[
 
 ### Tasks
 
-- [ ] Add `fillable() -> &'static [&'static str]` to `Model` trait (default: all columns)
-- [ ] Add `guarded() -> &'static [&'static str]` to `Model` trait (default: empty)
-- [ ] Macro generates overrides from `#[model(fillable = [...])]` / `#[model(guarded = [...])]`
-- [ ] Add `filter_fillable(data: &[(&str, SqlValue)]) -> Vec<(&str, SqlValue)>` helper in executor
+- [x] Add `fillable() -> &'static [&'static str]` to `Model` trait (default: empty = all allowed)
+- [x] Add `guarded() -> &'static [&'static str]` to `Model` trait (default: empty = nothing guarded)
+- [x] Macro generates overrides from `#[model(fillable = [...])]` / `#[model(guarded = [...])]`
+- [x] Add `filter_fillable(data: &[(&str, SqlValue)]) -> Vec<(&str, SqlValue)>` as a Model trait method
 - [ ] Apply filter in `create`, `create_returning`, `bulk_create`, `update_by_pk`, `update_where`
-- [ ] Tests: fillable allows only listed cols, guarded blocks listed cols, no filtering when both empty
+- [x] Tests: fillable allows only listed cols, guarded blocks listed cols, no filtering when both empty
 
 ---
 

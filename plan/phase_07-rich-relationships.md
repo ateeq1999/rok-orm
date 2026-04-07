@@ -573,8 +573,9 @@ User::increment_without_timestamps(&pool, 1, "views", 1).await?;
 
 ### Tasks
 
-- [ ] Add `created_at_col` and `updated_at_col` to `#[model(...)]` attribute
-- [ ] Macro uses these overrides instead of `"created_at"` / `"updated_at"` literals
+- [x] Add `created_at_col` and `updated_at_col` to `#[model(...)]` attribute
+- [x] Macro uses these overrides instead of `"created_at"` / `"updated_at"` literals
+- [x] Add `soft_delete_col` attribute to `#[model(...)]` for custom soft-delete column name
 - [ ] Add `TIMESTAMPS_MUTED: thread_local! { Cell<bool> }`
 - [ ] Add `Model::without_timestamps(closure)` — sets flag, runs, resets
 - [ ] Executor paths check flag before injecting timestamp columns
