@@ -19,6 +19,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
     let mut soft_delete_col: Option<String> = None;
     let mut fillable_cols: Vec<String> = Vec::new();
     let mut guarded_cols: Vec<String> = Vec::new();
+    let mut touches_rels: Vec<String> = Vec::new();
     let mut uuid_pk = false;
 
     for attr in &input.attrs {
@@ -61,6 +62,13 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                 Ok(())
             } else if meta.path.is_ident("uuid") {
                 uuid_pk = true;
+                Ok(())
+            } else if meta.path.is_ident("touches") {
+                let value = meta.value()?;
+                let content;
+                syn::bracketed!(content in value);
+                let list = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?;
+                touches_rels.extend(list.into_iter().map(|s| s.value()));
                 Ok(())
             } else if meta.path.is_ident("fillable") {
                 let value = meta.value()?;
@@ -189,6 +197,18 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
         quote! {}
     };
 
+    let touches_len = touches_rels.len();
+    let touches_impl = if touches_len > 0 {
+        quote! {
+            fn touches() -> &'static [&'static str] {
+                static RELS: [&str; #touches_len] = [#(#touches_rels),*];
+                &RELS
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     let fillable_len = fillable_cols.len();
     let guarded_len = guarded_cols.len();
 
@@ -225,6 +245,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
             #soft_delete_impl
             #timestamps_impl
             #uuid_impl
+            #touches_impl
             #fillable_impl
             #guarded_impl
         }

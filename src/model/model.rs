@@ -57,6 +57,11 @@ pub trait Model: Sized {
         &[]
     }
 
+    /// Relation names whose parent's `updated_at` should be touched after writes.
+    fn touches() -> &'static [&'static str] {
+        &[]
+    }
+
     /// Filter `data` through the fillable/guarded lists.
     ///
     /// If `fillable()` is non-empty, only listed columns pass through.
