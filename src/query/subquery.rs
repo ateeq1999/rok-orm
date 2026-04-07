@@ -194,4 +194,36 @@ mod tests {
             .to_sql();
         assert!(sql.contains("<= 100"));
     }
+
+    struct Post;
+    impl crate::model::Model for Post {
+        fn table_name() -> &'static str { "posts" }
+        fn columns() -> &'static [&'static str] { &["id", "user_id", "published"] }
+    }
+
+    #[test]
+    fn where_has_generates_exists_subquery() {
+        let (sql, _) = QueryBuilder::<()>::new("users")
+            .where_has::<Post>("posts", "user_id", "id")
+            .to_sql();
+        assert!(sql.contains("EXISTS"));
+        assert!(sql.contains("posts.user_id = users.id"));
+    }
+
+    #[test]
+    fn where_doesnt_have_generates_not_exists() {
+        let (sql, _) = QueryBuilder::<()>::new("users")
+            .where_doesnt_have::<Post>("posts", "user_id", "id")
+            .to_sql();
+        assert!(sql.contains("NOT EXISTS"));
+    }
+
+    #[test]
+    fn where_has_with_adds_extra_filter() {
+        let (sql, _) = QueryBuilder::<()>::new("users")
+            .where_has_with::<Post>("posts", "user_id", "id", "published", true)
+            .to_sql();
+        assert!(sql.contains("EXISTS"));
+        assert!(sql.contains("posts.published = TRUE"));
+    }
 }

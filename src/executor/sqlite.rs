@@ -188,6 +188,33 @@ pub async fn upsert<T>(
     execute_raw(pool, &sql, params).await
 }
 
+pub async fn upsert_returning<T>(
+    pool: &SqlitePool,
+    table: &str,
+    data: &[(&str, SqlValue)],
+    conflict_column: &str,
+    update_columns: &[&str],
+) -> Result<T, sqlx::Error>
+where
+    T: for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unpin,
+{
+    let (sql, params) = QueryBuilder::<T>::upsert_sql_with_dialect(
+        Dialect::Sqlite, table, data, conflict_column, update_columns,
+    );
+    // After INSERT OR REPLACE, fetch the row back using the conflict column value
+    let conflict_val = data.iter()
+        .find(|(col, _)| *col == conflict_column)
+        .map(|(_, v)| v.clone())
+        .unwrap_or(SqlValue::Null);
+    execute_raw(pool, &sql, params).await?;
+    let select = format!("SELECT * FROM {table} WHERE {conflict_column} = ?");
+    sqlx_sqlite::fetch_all_as::<T>(pool, &select, vec![conflict_val])
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(sqlx::Error::RowNotFound)
+}
+
 pub async fn delete_in<T>(
     pool: &SqlitePool,
     column: &str,

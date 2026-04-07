@@ -3,7 +3,7 @@
 //! For aggregates, pagination, upsert, and advanced queries see [`MyModelExt`].
 
 use chrono::Utc;
-use crate::model::{Model, model::timestamps_muted};
+use crate::model::{Model, model::{timestamps_muted, events_muted}};
 use crate::query::{QueryBuilder, SqlValue};
 use sqlx::mysql::{MyRow, MyPool};
 
@@ -150,7 +150,7 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     }
 
     async fn create_returning(pool: &MyPool, data: &[(&str, SqlValue)]) -> Result<Self, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + 'static,
     {
         let mut d = Self::filter_fillable(data);
         if let Some(pk_val) = Self::new_unique_id() {
@@ -164,7 +164,13 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
                 d.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
             }
         }
-        mysql::insert_returning::<Self>(pool, Self::table_name(), &d).await
+        let row = mysql::insert_returning::<Self>(pool, Self::table_name(), &d).await?;
+        if !events_muted() {
+            use crate::observer::{ObserverRegistry, ObserverEvent};
+            ObserverRegistry::dispatch::<Self>(&row, ObserverEvent::Created);
+            ObserverRegistry::dispatch::<Self>(&row, ObserverEvent::Saved);
+        }
+        Ok(row)
     }
 
     fn restore(

@@ -72,6 +72,19 @@ pub trait SqliteModelExt: SqliteModel {
             .await
     }
 
+    async fn upsert_returning(
+        pool: &SqlitePool,
+        data: &[(&str, SqlValue)],
+        conflict_column: &str,
+        update_columns: &[&str],
+    ) -> Result<Self, sqlx::Error>
+    where Self: Sized,
+    {
+        sqlite::upsert_returning::<Self>(
+            pool, Self::table_name(), data, conflict_column, update_columns,
+        ).await
+    }
+
     async fn delete_in(
         pool: &SqlitePool,
         column: &str,
