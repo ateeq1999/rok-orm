@@ -476,9 +476,9 @@ assert!(a.is(&b));
 ### Tasks
 
 - [ ] Add `replicate(&self) -> Self` to `Model` trait (clone + reset PK field to Default)
-- [ ] Add `to_fields(&self) -> Vec<(&'static str, SqlValue)>` — serialize all non-PK columns
+- [x] Add `to_fields(&self) -> Vec<(&'static str, SqlValue)>` — serialize all non-PK columns
 - [x] Add `is(&self, other: &Self) -> bool` — value equality (requires `Self: PartialEq`)
-- [ ] Tests: replicate + re-save, is() match and mismatch
+- [x] Tests: to_fields with rename, skip, default PK exclusion
 
 ---
 

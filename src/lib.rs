@@ -69,7 +69,7 @@ pub mod pagination;
 pub use pagination::{Page, PaginationOptions};
 
 pub mod cursor;
-pub use cursor::{CursorPage, CursorResult};
+pub use cursor::{CursorPage, CursorResult, encode_cursor, decode_cursor};
 
 pub mod scopes;
 pub mod observer;
