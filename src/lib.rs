@@ -70,6 +70,8 @@ pub mod pagination;
 pub use pagination::{Page, PaginationOptions};
 
 pub mod scopes;
+pub mod observer;
+pub use observer::{ModelObserver, ObserverEvent, ObserverRegistry};
 pub mod errors;
 pub use errors::{OrmError, OrmResult, IntoOrmResult};
 
