@@ -283,7 +283,6 @@ impl<T> QueryBuilder<T> {
     }
 
     pub(crate) fn build_order(&self) -> String {
-        use super::condition::OrderDir;
         if self.order.is_empty() {
             return String::new();
         }

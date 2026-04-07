@@ -68,20 +68,18 @@ where
                 parent_id,
             );
         if !self.pivot_columns.is_empty() {
-            let mut cols: Vec<&str> = vec!["*"];
-            let pivot_cols: Vec<String> = self
-                .pivot_columns
+            let pivot_cols: Vec<String> = self.pivot_columns
                 .iter()
                 .map(|c| format!("{}.{}", self.pivot_table, c))
                 .collect();
-            let _pivot_refs: Vec<&str> = pivot_cols.iter().map(|s| s.as_str()).collect();
-            // Note: select with pivot columns for full pivot access
-            let _ = cols;
+            let mut all_cols = vec!["*".to_string()];
+            all_cols.extend(pivot_cols);
+            let col_refs: Vec<&str> = all_cols.iter().map(|s| s.as_str()).collect();
+            qb = qb.select(&col_refs);
         }
         qb
     }
 
-    /// INSERT INTO pivot (left_key, right_key) VALUES ($1, $2)
     pub fn attach_sql(&self, parent_id: SqlValue, related_id: SqlValue) -> (String, Vec<SqlValue>) {
         let sql = format!(
             "INSERT INTO {} ({}, {}) VALUES ($1, $2)",
@@ -90,7 +88,6 @@ where
         (sql, vec![parent_id, related_id])
     }
 
-    /// INSERT INTO pivot (left_key, right_key, …extra) VALUES ($1, $2, …)
     pub fn attach_with_pivot_sql(
         &self,
         parent_id: SqlValue,
@@ -113,7 +110,6 @@ where
         (sql, params)
     }
 
-    /// DELETE FROM pivot WHERE left_key = $1 AND right_key = $2
     pub fn detach_sql(&self, parent_id: SqlValue, related_id: SqlValue) -> (String, Vec<SqlValue>) {
         let sql = format!(
             "DELETE FROM {} WHERE {} = $1 AND {} = $2",
@@ -122,7 +118,6 @@ where
         (sql, vec![parent_id, related_id])
     }
 
-    /// DELETE FROM pivot WHERE left_key = $1
     pub fn detach_all_sql(&self, parent_id: SqlValue) -> (String, Vec<SqlValue>) {
         let sql = format!(
             "DELETE FROM {} WHERE {} = $1",
@@ -131,7 +126,6 @@ where
         (sql, vec![parent_id])
     }
 
-    /// SELECT right_key FROM pivot WHERE left_key = $1
     pub fn current_ids_sql(&self, parent_id: SqlValue) -> (String, Vec<SqlValue>) {
         let sql = format!(
             "SELECT {} FROM {} WHERE {} = $1",
@@ -140,7 +134,6 @@ where
         (sql, vec![parent_id])
     }
 
-    /// UPDATE pivot SET … WHERE left_key = $? AND right_key = $?
     pub fn update_pivot_sql(
         &self,
         parent_id: SqlValue,
