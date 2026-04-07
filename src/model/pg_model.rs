@@ -6,7 +6,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use chrono::Utc;
-use crate::model::Model;
+use crate::model::{Model, model::timestamps_muted};
 use crate::query::{QueryBuilder, SqlValue};
 use sqlx::{postgres::PgRow, PgPool};
 
@@ -105,13 +105,17 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         postgres::count(pool, builder).await
     }
 
-    fn create(
+    async fn create(
         pool: &PgPool,
         data: &[(&str, SqlValue)],
-    ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
+    ) -> Result<u64, sqlx::Error>
     where Self: Sized,
     {
-        postgres::insert::<Self>(pool, Self::table_name(), data)
+        let mut d = Self::filter_fillable(data);
+        if let Some(pk_val) = Self::new_unique_id() {
+            d.insert(0, (Self::primary_key(), pk_val));
+        }
+        postgres::insert::<Self>(pool, Self::table_name(), &d).await
     }
 
     async fn update_by_pk(
@@ -121,8 +125,8 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     ) -> Result<u64, sqlx::Error>
     where Self: Sized,
     {
-        let mut d = data.to_vec();
-        if Self::timestamps_enabled() {
+        let mut d = Self::filter_fillable(data);
+        if Self::timestamps_enabled() && !timestamps_muted() {
             if let Some(col) = Self::updated_at_column() {
                 d.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
             }
@@ -148,30 +152,38 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
         postgres::delete(pool, builder)
     }
 
-    fn update_where(
+    async fn update_where(
         pool: &PgPool,
         builder: QueryBuilder<Self>,
         data: &[(&str, SqlValue)],
-    ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
+    ) -> Result<u64, sqlx::Error>
     where Self: Sized,
     {
-        postgres::update::<Self>(pool, builder, data)
+        let d = Self::filter_fillable(data);
+        postgres::update::<Self>(pool, builder, &d).await
     }
 
-    fn bulk_create(
+    async fn bulk_create(
         pool: &PgPool,
         rows: &[Vec<(&str, SqlValue)>],
-    ) -> impl std::future::Future<Output = Result<u64, sqlx::Error>> + Send
+    ) -> Result<u64, sqlx::Error>
     where Self: Sized,
     {
-        postgres::bulk_insert::<Self>(pool, Self::table_name(), rows)
+        let filtered: Vec<Vec<(&str, SqlValue)>> = rows
+            .iter()
+            .map(|row| Self::filter_fillable(row))
+            .collect();
+        postgres::bulk_insert::<Self>(pool, Self::table_name(), &filtered).await
     }
 
     async fn create_returning(pool: &PgPool, data: &[(&str, SqlValue)]) -> Result<Self, sqlx::Error>
     where Self: Sized,
     {
-        let mut d = data.to_vec();
-        if Self::timestamps_enabled() {
+        let mut d = Self::filter_fillable(data);
+        if let Some(pk_val) = Self::new_unique_id() {
+            d.insert(0, (Self::primary_key(), pk_val));
+        }
+        if Self::timestamps_enabled() && !timestamps_muted() {
             if let Some(col) = Self::created_at_column() {
                 d.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
             }
