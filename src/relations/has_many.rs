@@ -145,6 +145,20 @@ where
         );
         crate::executor::sqlite::execute_raw(pool, &sql, params).await
     }
+
+    /// Generate bulk INSERT SQL for multiple child rows, each with FK injected.
+    pub fn create_many_sql(
+        &self,
+        parent_id: SqlValue,
+        rows: &[&[(&str, SqlValue)]],
+    ) -> (String, Vec<SqlValue>) {
+        let full_rows: Vec<Vec<(&str, SqlValue)>> = rows.iter().map(|r| {
+            let mut row = vec![(&self.foreign_key as &str, parent_id.clone())];
+            row.extend_from_slice(r);
+            row
+        }).collect();
+        QueryBuilder::<C>::bulk_insert_sql(self.child_table, &full_rows)
+    }
 }
 
 impl<P, C> Relation<P, C> for HasMany<P, C>
@@ -208,5 +222,19 @@ mod tests {
         let (sql, params) = rel.dissociate_sql(SqlValue::Integer(5));
         assert!(sql.contains("SET user_id = NULL"));
         assert_eq!(params[0], SqlValue::Integer(5));
+    }
+
+    #[test]
+    fn create_many_sql_injects_fk_in_each_row() {
+        let rel = posts_rel();
+        let row1: &[(&str, SqlValue)] = &[("title", SqlValue::Text("Post 1".into()))];
+        let row2: &[(&str, SqlValue)] = &[("title", SqlValue::Text("Post 2".into()))];
+        let (sql, params) = rel.create_many_sql(SqlValue::Integer(7), &[row1, row2]);
+        assert!(sql.starts_with("INSERT INTO posts"));
+        assert!(sql.contains("user_id"));
+        // 2 rows × 2 columns each = 4 params
+        assert_eq!(params.len(), 4);
+        assert_eq!(params[0], SqlValue::Integer(7)); // first row FK
+        assert_eq!(params[2], SqlValue::Integer(7)); // second row FK
     }
 }
