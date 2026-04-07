@@ -46,6 +46,18 @@ pub async fn count<T>(pool: &SqlitePool, builder: QueryBuilder<T>) -> Result<i64
     row.try_get::<i64, _>(0)
 }
 
+/// Fetch rows using a raw SQL string with `?` placeholders.
+pub async fn fetch_raw<T>(
+    pool: &SqlitePool,
+    sql: &str,
+    params: Vec<SqlValue>,
+) -> Result<Vec<T>, sqlx::Error>
+where
+    T: for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unpin,
+{
+    sqlx_sqlite::fetch_all_as::<T>(pool, sql, params).await
+}
+
 /// Execute a raw SQL string and return rows affected.
 pub async fn execute_raw(
     pool: &SqlitePool,

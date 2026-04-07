@@ -39,7 +39,7 @@ pub mod query;
 pub use query::{Condition, CountOp, Dialect, Join, JoinOp, OrderDir, QueryBuilder, SqlValue};
 
 pub mod model;
-pub use model::{Model, Prunable};
+pub use model::{Model, Prunable, PrunableRegistry};
 pub use model::{timestamps_muted, events_muted};
 #[cfg(feature = "postgres")]
 pub use model::{PgModel, PgModelExt};

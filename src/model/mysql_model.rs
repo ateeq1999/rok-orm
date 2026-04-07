@@ -14,9 +14,9 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     fn all(
         pool: &MyPool,
     ) -> impl std::future::Future<Output = Result<Vec<Self>, sqlx::Error>> + Send
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        mysql::fetch_all(pool, Self::query())
+        mysql::fetch_all(pool, Self::scoped_query())
     }
 
     fn find_where(
@@ -46,23 +46,23 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     }
 
     async fn first(pool: &MyPool) -> Result<Option<Self>, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        mysql::fetch_optional(pool, Self::query().limit(1)).await
+        mysql::fetch_optional(pool, Self::scoped_query().limit(1)).await
     }
 
     async fn first_or_404(pool: &MyPool) -> Result<Self, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        mysql::fetch_optional(pool, Self::query().limit(1))
+        mysql::fetch_optional(pool, Self::scoped_query().limit(1))
             .await?
             .ok_or(sqlx::Error::RowNotFound)
     }
 
     async fn get(pool: &MyPool) -> Result<Vec<Self>, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        mysql::fetch_all(pool, Self::query()).await
+        mysql::fetch_all(pool, Self::scoped_query()).await
     }
 
     async fn get_where(pool: &MyPool, builder: QueryBuilder<Self>) -> Result<Vec<Self>, sqlx::Error>
@@ -72,9 +72,9 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     }
 
     async fn count(pool: &MyPool) -> Result<i64, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        mysql::count(pool, Self::query()).await
+        mysql::count(pool, Self::scoped_query()).await
     }
 
     async fn count_where(pool: &MyPool, builder: QueryBuilder<Self>) -> Result<i64, sqlx::Error>
@@ -212,6 +212,20 @@ pub trait MyModel: Model + for<'r> sqlx::FromRow<'r, MyRow> + Send + Unpin {
     where Self: Sized,
     {
         mysql::fetch_raw::<Self>(pool, sql, params)
+    }
+
+    /// Update this record with events muted (no observer hooks fired).
+    async fn save_quietly(
+        pool: &MyPool,
+        id: impl Into<SqlValue> + Send,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error>
+    where Self: Sized,
+    {
+        Self::without_events(|| async move {
+            Self::update_by_pk(pool, id, data).await
+        })
+        .await
     }
 }
 

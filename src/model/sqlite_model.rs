@@ -36,9 +36,9 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
     fn all(
         pool: &SqlitePool,
     ) -> impl std::future::Future<Output = Result<Vec<Self>, sqlx::Error>> + Send
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        sqlite::fetch_all(pool, Self::query())
+        sqlite::fetch_all(pool, Self::scoped_query())
     }
 
     fn find_where(
@@ -71,23 +71,23 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
     }
 
     async fn first(pool: &SqlitePool) -> Result<Option<Self>, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        sqlite::fetch_optional(pool, Self::query().limit(1)).await
+        sqlite::fetch_optional(pool, Self::scoped_query().limit(1)).await
     }
 
     async fn first_or_404(pool: &SqlitePool) -> Result<Self, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        sqlite::fetch_optional(pool, Self::query().limit(1))
+        sqlite::fetch_optional(pool, Self::scoped_query().limit(1))
             .await?
             .ok_or(sqlx::Error::RowNotFound)
     }
 
     async fn get(pool: &SqlitePool) -> Result<Vec<Self>, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        sqlite::fetch_all(pool, Self::query()).await
+        sqlite::fetch_all(pool, Self::scoped_query()).await
     }
 
     async fn get_where(
@@ -100,9 +100,9 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
     }
 
     async fn count(pool: &SqlitePool) -> Result<i64, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        sqlite::count(pool, Self::query()).await
+        sqlite::count(pool, Self::scoped_query()).await
     }
 
     async fn count_where(
@@ -226,6 +226,31 @@ pub trait SqliteModel: Model + for<'r> sqlx::FromRow<'r, SqliteRow> + Send + Unp
     where Self: Sized,
     {
         sqlite::force_delete(pool, builder)
+    }
+
+    /// Fetch rows using a raw SQL string with `?` placeholders.
+    fn from_raw_sql(
+        pool: &SqlitePool,
+        sql: &str,
+        params: Vec<SqlValue>,
+    ) -> impl std::future::Future<Output = Result<Vec<Self>, sqlx::Error>> + Send
+    where Self: Sized,
+    {
+        sqlite::fetch_raw::<Self>(pool, sql, params)
+    }
+
+    /// Update this record with events muted (no observer hooks fired).
+    async fn save_quietly(
+        pool: &SqlitePool,
+        id: impl Into<SqlValue> + Send,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error>
+    where Self: Sized,
+    {
+        Self::without_events(|| async move {
+            Self::update_by_pk(pool, id, data).await
+        })
+        .await
     }
 }
 

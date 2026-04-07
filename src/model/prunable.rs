@@ -25,6 +25,8 @@
 //! let deleted = ActivityLog::prune(&pool).await?;
 //! ```
 
+use std::sync::OnceLock;
+
 use crate::model::Model;
 use crate::query::QueryBuilder;
 
@@ -56,6 +58,73 @@ pub trait Prunable: Model + Sized {
     async fn prune_mysql(pool: &sqlx::MySqlPool) -> Result<u64, sqlx::Error> {
         use crate::executor::mysql;
         mysql::delete(pool, Self::prunable_query()).await
+    }
+}
+
+// ── PrunableRegistry ─────────────────────────────────────────────────────────
+
+/// A type-erased prune function: returns `(DELETE sql, params)` on call.
+type PruneFn = Box<dyn Fn() -> (String, Vec<crate::query::SqlValue>) + Send + Sync>;
+
+static PRUNE_REGISTRY: OnceLock<std::sync::RwLock<Vec<PruneFn>>> = OnceLock::new();
+
+fn registry() -> &'static std::sync::RwLock<Vec<PruneFn>> {
+    PRUNE_REGISTRY.get_or_init(|| std::sync::RwLock::new(Vec::new()))
+}
+
+/// Batch pruner — register models once at startup, then call `prune_all(pool)`.
+pub struct PrunableRegistry;
+
+impl PrunableRegistry {
+    /// Register a `Prunable` model so that `prune_all` will include it.
+    pub fn register<M: Prunable + 'static>() {
+        let f: PruneFn = Box::new(|| {
+            let (sql, _) = M::prunable_query().to_delete_sql();
+            (sql, vec![])
+        });
+        registry().write().unwrap().push(f);
+    }
+
+    /// Run every registered model's prunable delete and return total rows affected.
+    #[cfg(feature = "postgres")]
+    pub async fn prune_all(pool: &sqlx::PgPool) -> Result<u64, sqlx::Error> {
+        use crate::executor::postgres;
+        let fns: Vec<(String, Vec<crate::query::SqlValue>)> = {
+            registry().read().unwrap().iter().map(|f| f()).collect()
+        };
+        let mut total = 0u64;
+        for (sql, params) in fns {
+            total += postgres::execute_raw(pool, &sql, params).await?;
+        }
+        Ok(total)
+    }
+
+    /// Run every registered model's prunable delete and return total rows affected (SQLite).
+    #[cfg(feature = "sqlite")]
+    pub async fn prune_all_sqlite(pool: &sqlx::SqlitePool) -> Result<u64, sqlx::Error> {
+        use crate::executor::sqlite;
+        let fns: Vec<(String, Vec<crate::query::SqlValue>)> = {
+            registry().read().unwrap().iter().map(|f| f()).collect()
+        };
+        let mut total = 0u64;
+        for (sql, params) in fns {
+            total += sqlite::execute_raw(pool, &sql, params).await?;
+        }
+        Ok(total)
+    }
+
+    /// Run every registered model's prunable delete and return total rows affected (MySQL).
+    #[cfg(feature = "mysql")]
+    pub async fn prune_all_mysql(pool: &sqlx::MySqlPool) -> Result<u64, sqlx::Error> {
+        use crate::executor::mysql;
+        let fns: Vec<(String, Vec<crate::query::SqlValue>)> = {
+            registry().read().unwrap().iter().map(|f| f()).collect()
+        };
+        let mut total = 0u64;
+        for (sql, params) in fns {
+            total += mysql::execute(pool, &sql, params).await?;
+        }
+        Ok(total)
     }
 }
 

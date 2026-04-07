@@ -98,6 +98,53 @@ where
         );
         (sql, vec![child_pk_val])
     }
+
+    /// Insert a new child row with the FK already set (PostgreSQL).
+    #[cfg(feature = "postgres")]
+    pub async fn create_pg(
+        &self,
+        pool: &sqlx::PgPool,
+        parent_id: SqlValue,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error> {
+        let mut full: Vec<(&str, SqlValue)> = vec![(&self.foreign_key, parent_id)];
+        full.extend_from_slice(data);
+        let (sql, params) = QueryBuilder::<C>::insert_sql_with_dialect(
+            crate::query::Dialect::Postgres, self.child_table, &full,
+        );
+        crate::executor::postgres::execute_raw(pool, &sql, params).await
+    }
+
+    /// Insert a new child row and return it (PostgreSQL `RETURNING *`).
+    #[cfg(feature = "postgres")]
+    pub async fn create_returning_pg(
+        &self,
+        pool: &sqlx::PgPool,
+        parent_id: SqlValue,
+        data: &[(&str, SqlValue)],
+    ) -> Result<C, sqlx::Error>
+    where C: for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Unpin,
+    {
+        let mut full: Vec<(&str, SqlValue)> = vec![(&self.foreign_key, parent_id)];
+        full.extend_from_slice(data);
+        crate::executor::postgres::insert_returning::<C>(pool, self.child_table, &full).await
+    }
+
+    /// Insert a new child row with the FK already set (SQLite).
+    #[cfg(feature = "sqlite")]
+    pub async fn create_sqlite(
+        &self,
+        pool: &sqlx::SqlitePool,
+        parent_id: SqlValue,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error> {
+        let mut full: Vec<(&str, SqlValue)> = vec![(&self.foreign_key, parent_id)];
+        full.extend_from_slice(data);
+        let (sql, params) = QueryBuilder::<C>::insert_sql_with_dialect(
+            crate::query::Dialect::Sqlite, self.child_table, &full,
+        );
+        crate::executor::sqlite::execute_raw(pool, &sql, params).await
+    }
 }
 
 impl<P, C> Relation<P, C> for HasMany<P, C>

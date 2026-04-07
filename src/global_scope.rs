@@ -83,14 +83,19 @@ impl ScopeRegistry {
         }
     }
 
-    /// Apply all registered scopes for `M` to `builder`.
+    /// Apply all registered scopes for `M` to `builder`, skipping excluded ones.
     ///
-    /// Call this in your `Model::query()` override after soft-delete setup.
+    /// Scopes listed in `builder.excluded_scope_ids` (via `without_global_scope::<S>()`)
+    /// are skipped.
     pub fn apply_scopes<M: Model + Send + 'static>(builder: QueryBuilder<M>) -> QueryBuilder<M> {
         let reg = registry().read().unwrap();
         if let Some(entries) = reg.get(&TypeId::of::<M>()) {
+            let excluded = builder.excluded_scope_ids.clone();
             let mut any_qb: Box<dyn Any + Send> = Box::new(builder);
             for entry in entries {
+                if excluded.contains(&entry.scope_type_id) {
+                    continue;
+                }
                 any_qb = (entry.apply)(any_qb);
             }
             *any_qb.downcast::<QueryBuilder<M>>().expect("scope result type mismatch")

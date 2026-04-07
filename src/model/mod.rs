@@ -14,7 +14,7 @@ mod mysql_model;
 mod mysql_model_ext;
 
 pub use model::{Model, timestamps_muted, events_muted};
-pub use prunable::Prunable;
+pub use prunable::{Prunable, PrunableRegistry};
 #[cfg(feature = "postgres")]
 pub use pg_model::PgModel;
 #[cfg(feature = "postgres")]

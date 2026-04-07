@@ -63,6 +63,7 @@ pub struct QueryBuilder<T> {
     pub(super) soft_delete_column: Option<String>,
     pub(super) update_columns: Vec<(String, SqlValue)>,
     pub(super) eager_loads: Vec<String>,
+    pub(crate) excluded_scope_ids: Vec<std::any::TypeId>,
     pub(super) _marker: PhantomData<T>,
 }
 
@@ -83,6 +84,7 @@ impl<T> Clone for QueryBuilder<T> {
             soft_delete_column: self.soft_delete_column.clone(),
             update_columns: self.update_columns.clone(),
             eager_loads: self.eager_loads.clone(),
+            excluded_scope_ids: self.excluded_scope_ids.clone(),
             _marker: PhantomData,
         }
     }
@@ -105,6 +107,7 @@ impl<T> QueryBuilder<T> {
             soft_delete_column: None,
             update_columns: Vec::new(),
             eager_loads: Vec::new(),
+            excluded_scope_ids: Vec::new(),
             _marker: PhantomData,
         }
     }
@@ -231,69 +234,9 @@ impl<T> QueryBuilder<T> {
         self
     }
 
-    pub(crate) fn build_joins(&self) -> String {
-        let mut out = String::new();
-        for join in &self.joins {
-            match join {
-                Join::Inner(t, on) => out.push_str(&format!(" INNER JOIN {t} ON {on}")),
-                Join::Left(t, on) => out.push_str(&format!(" LEFT JOIN {t} ON {on}")),
-                Join::Right(t, on) => out.push_str(&format!(" RIGHT JOIN {t} ON {on}")),
-            }
-        }
-        out
-    }
-
-    pub(crate) fn build_where_dialect(
-        &self,
-        dialect: Dialect,
-        params: &mut Vec<SqlValue>,
-    ) -> String {
-        super::build_where_from_dialect(dialect, &self.conditions, params)
-    }
-
-    pub(crate) fn build_where_with_soft_delete(
-        &self,
-        dialect: Dialect,
-        params: &mut Vec<SqlValue>,
-    ) -> String {
-        let mut conditions = self.conditions.clone();
-        if let Some(ref col) = self.soft_delete_column {
-            match self.soft_delete_mode {
-                SoftDeleteMode::Exclude => {
-                    conditions.push((JoinOp::And, Condition::IsNull(col.clone())));
-                }
-                SoftDeleteMode::Include => {}
-                SoftDeleteMode::Only => {
-                    conditions.push((JoinOp::And, Condition::IsNotNull(col.clone())));
-                }
-            }
-        }
-        super::build_where_from_dialect(dialect, &conditions, params)
-    }
-
-    pub(crate) fn build_group_by(&self) -> String {
-        let mut out = String::new();
-        if !self.group_by.is_empty() {
-            out.push_str(&format!(" GROUP BY {}", self.group_by.join(", ")));
-        }
-        if let Some(ref h) = self.having {
-            out.push_str(&format!(" HAVING {h}"));
-        }
-        out
-    }
-
-    pub(crate) fn build_order(&self) -> String {
-        if self.order.is_empty() {
-            return String::new();
-        }
-        let parts: Vec<String> = self
-            .order
-            .iter()
-            .map(|(col, dir)| match dir {
-                OrderDir::Raw(expr) => expr.clone(),
-                _ => format!("{col} {dir}"),
-            })
-            .collect();
-        format!(" ORDER BY {}", parts.join(", "))
+    /// Exclude a global scope type from being applied to this query.
+    pub fn without_global_scope<S: 'static>(mut self) -> Self {
+        self.excluded_scope_ids.push(std::any::TypeId::of::<S>());
+        self
     }
 }

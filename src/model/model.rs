@@ -101,6 +101,15 @@ pub trait Model: Sized {
         }
     }
 
+    /// Like `query()` but with all registered global scopes applied.
+    ///
+    /// Used automatically by `all()`, `get()`, `first()`, and `count()` on PgModel/SqliteModel/MyModel.
+    fn scoped_query() -> QueryBuilder<Self>
+    where Self: Send + 'static,
+    {
+        crate::global_scope::ScopeRegistry::apply_scopes::<Self>(Self::query())
+    }
+
     /// Run `f` with timestamp injection suppressed for this thread.
     ///
     /// Useful when you want to update a record without touching `updated_at`.
@@ -137,6 +146,28 @@ pub trait Model: Sized {
     /// this compares all fields. For a PK-only comparison, use `is_same_pk()`.
     fn is(&self, other: &Self) -> bool where Self: PartialEq {
         self == other
+    }
+
+    /// Build a new (unsaved) instance whose fields match `conditions` + `data`,
+    /// without hitting the database.
+    ///
+    /// Returns a value with every column set to its `Default::default()` first,
+    /// then the condition and data columns are returned as a field list — the
+    /// caller decides how to construct `Self`.
+    ///
+    /// Since Rust structs don't have reflection, this returns the merged
+    /// key-value pairs for use with `create_returning` or similar.
+    fn first_or_new<'a>(
+        conditions: &[(&'a str, crate::query::SqlValue)],
+        data: &[(&'a str, crate::query::SqlValue)],
+    ) -> Vec<(&'a str, crate::query::SqlValue)> {
+        let mut merged: Vec<(&str, crate::query::SqlValue)> = conditions.to_vec();
+        for row in data {
+            if !merged.iter().any(|(c, _)| c == &row.0) {
+                merged.push(row.clone());
+            }
+        }
+        merged
     }
 
     fn find(id: impl Into<crate::query::SqlValue>) -> QueryBuilder<Self> {

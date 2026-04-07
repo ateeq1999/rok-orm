@@ -36,9 +36,9 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     fn all(
         pool: &PgPool,
     ) -> impl std::future::Future<Output = Result<Vec<Self>, sqlx::Error>> + Send
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        postgres::fetch_all(pool, Self::query())
+        postgres::fetch_all(pool, Self::scoped_query())
     }
 
     fn find_where(
@@ -68,23 +68,23 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     }
 
     async fn first(pool: &PgPool) -> Result<Option<Self>, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        postgres::fetch_optional(pool, Self::query().limit(1)).await
+        postgres::fetch_optional(pool, Self::scoped_query().limit(1)).await
     }
 
     async fn first_or_404(pool: &PgPool) -> Result<Self, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        postgres::fetch_optional(pool, Self::query().limit(1))
+        postgres::fetch_optional(pool, Self::scoped_query().limit(1))
             .await?
             .ok_or(sqlx::Error::RowNotFound)
     }
 
     async fn get(pool: &PgPool) -> Result<Vec<Self>, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        postgres::fetch_all(pool, Self::query()).await
+        postgres::fetch_all(pool, Self::scoped_query()).await
     }
 
     async fn get_where(pool: &PgPool, builder: QueryBuilder<Self>) -> Result<Vec<Self>, sqlx::Error>
@@ -94,9 +94,9 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     }
 
     async fn count(pool: &PgPool) -> Result<i64, sqlx::Error>
-    where Self: Sized,
+    where Self: Sized + Send + 'static,
     {
-        postgres::count(pool, Self::query()).await
+        postgres::count(pool, Self::scoped_query()).await
     }
 
     async fn count_where(pool: &PgPool, builder: QueryBuilder<Self>) -> Result<i64, sqlx::Error>
@@ -229,19 +229,8 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     {
         postgres::force_delete(pool, builder)
     }
-}
 
     /// Fetch rows using a raw SQL string and positional parameters (`$1`, `$2`, …).
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let users = User::from_raw_sql(
-    ///     &pool,
-    ///     "SELECT * FROM users WHERE active = $1",
-    ///     vec![true.into()],
-    /// ).await?;
-    /// ```
     fn from_raw_sql(
         pool: &PgPool,
         sql: &str,
@@ -250,6 +239,20 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
     where Self: Sized,
     {
         postgres::fetch_raw::<Self>(pool, sql, params)
+    }
+
+    /// Update this record with events muted (no observer hooks fired).
+    async fn save_quietly(
+        pool: &PgPool,
+        id: impl Into<SqlValue> + Send,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error>
+    where Self: Sized,
+    {
+        Self::without_events(|| async move {
+            Self::update_by_pk(pool, id, data).await
+        })
+        .await
     }
 }
 
