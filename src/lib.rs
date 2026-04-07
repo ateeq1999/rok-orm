@@ -61,7 +61,6 @@ pub use relations::{
     ManyToMany, BelongsToMany, PivotRow, Relation, Relations,
 };
 
-#[cfg(feature = "postgres")]
 pub use relations::eager::{BelongsToEager, HasManyEager, HasOneEager};
 
 // ── Additional Modules ──────────────────────────────────────────────────────
@@ -96,4 +95,14 @@ pub mod transaction;
 pub use transaction::Tx;
 
 // ── Macros ───────────────────────────────────────────────────────────────────
-// proc-macro crate handles: #[derive(Model)], #[derive(Relations)], #[derive(ModelHooks)], query!
+// Re-export proc-macros so users only need `rok_orm` in their dependency list.
+// The derive macro `Model` lives in a separate namespace from the `Model` trait.
+pub use rok_orm_macros::{Model, Relations, ModelHooks, query};
+
+// Convenience module aliases matching old import paths.
+pub mod belongs_to_many {
+    pub use crate::relations::belongs_to_many::*;
+}
+pub mod eager {
+    pub use crate::relations::eager::*;
+}

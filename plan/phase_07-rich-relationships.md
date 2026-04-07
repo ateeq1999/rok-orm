@@ -75,7 +75,7 @@ user.roles().update_pivot(&pool, role_id, &[
 - [x] Implement `sync()` — SELECT current IDs, diff, batch INSERT missing, DELETE removed
 - [x] Implement `toggle()` — SELECT current IDs, INSERT absent, DELETE present
 - [x] Add `with_pivot(&[cols])` — inject pivot columns into the JOIN SELECT
-- [ ] Add `PivotRow` wrapper struct holding the related model + `HashMap<String, SqlValue>` pivot data
+- [x] Add `PivotRow` wrapper struct holding the related model + `HashMap<String, SqlValue>` pivot data
 - [x] Add `update_pivot()` — UPDATE pivot table WHERE fk = ? AND rfk = ?
 - [ ] Extend `#[model(many_to_many(...))]` macro attribute parser
 - [ ] Tests: attach, detach, sync, toggle, with_pivot, update_pivot for PG + SQLite
@@ -637,7 +637,7 @@ user.save_quietly(&pool, &[("name", "Quiet Update".into())]).await?;
 
 - [x] Add `EVENTS_MUTED: thread_local! { Cell<bool> }`
 - [x] Add `Model::without_events(closure)` — set flag, run, reset
-- [ ] Executor paths check flag before dispatching hooks / observer calls
+- [x] Executor paths check flag before dispatching hooks / observer calls
 - [x] Add `save_quietly(pool, data)` as convenience wrapper calling `update_by_pk` with events muted
 - [x] Tests: without_events sets and resets flag correctly
 

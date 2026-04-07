@@ -9,7 +9,6 @@ pub mod pivot_row;
 pub(crate) mod lazy;
 pub mod belongs_to_many;
 
-#[cfg(feature = "postgres")]
 pub mod eager;
 
 pub use traits::{Relation, RelationQuery, Relations};
@@ -22,5 +21,4 @@ pub use has_many_through::HasManyThrough;
 pub use has_one_through::HasOneThrough;
 pub use pivot_row::PivotRow;
 
-#[cfg(feature = "postgres")]
 pub use eager::{BelongsToEager, HasManyEager, HasOneEager};
