@@ -59,6 +59,32 @@ where
     pub fn related_pk(&self) -> &str {
         self.related_pk
     }
+
+    /// Update this child's FK to point to a new parent.
+    ///
+    /// Returns `UPDATE child_table SET fk = $1 WHERE child_pk = $2`.
+    pub fn associate_sql(&self, child_pk_val: SqlValue, parent_id: SqlValue) -> (String, Vec<SqlValue>) {
+        let sql = format!(
+            "UPDATE {} SET {} = $1 WHERE {} = $2",
+            P::table_name(),
+            self.foreign_key,
+            P::primary_key(),
+        );
+        (sql, vec![parent_id, child_pk_val])
+    }
+
+    /// Clear this child's FK (set to NULL).
+    ///
+    /// Returns `UPDATE child_table SET fk = NULL WHERE child_pk = $1`.
+    pub fn dissociate_sql(&self, child_pk_val: SqlValue) -> (String, Vec<SqlValue>) {
+        let sql = format!(
+            "UPDATE {} SET {} = NULL WHERE {} = $1",
+            P::table_name(),
+            self.foreign_key,
+            P::primary_key(),
+        );
+        (sql, vec![child_pk_val])
+    }
 }
 
 impl<P, C> Relation<P, C> for BelongsTo<P, C>
