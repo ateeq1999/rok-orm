@@ -1,0 +1,28 @@
+[package]
+name = "rok-orm-examples-14c"
+version = "0.5.0"
+edition = "2021"
+
+[dependencies]
+rok-orm = { path = "../..", features = [
+    "postgres",
+    "sqlite",
+    "mysql",
+    "redis",
+    "axum",
+] }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-native-tls",
+    "postgres",
+    "sqlite",
+    "mysql",
+] }
+serde = { version = "1", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+dotenv = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+async-trait = "0.1"
+
+[workspace]

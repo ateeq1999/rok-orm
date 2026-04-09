@@ -46,6 +46,15 @@ let user = User::find_by_pk(&pool, 1).await?;
 | **Transactions** | First-class transaction support with the `Tx` wrapper |
 | **Error Handling** | Structured `OrmError` with variants for common cases |
 | **Query Logging** | Built-in logging with `Logger` and slow query detection |
+| **Conditional Queries** | `when()` / `when_else()` for dynamic query building |
+| **Raw Expressions** | `where_raw`, `select_raw`, `order_raw`, `from_raw_sql` |
+| **Pagination** | `Page<T>` and `CursorResult<T>` with cursor pagination |
+| **Chunking** | `chunk()` / `chunk_by_id()` for large dataset processing |
+| **Model Observers** | Lifecycle callbacks for model events |
+| **Global Scopes** | Apply conditions to all model queries |
+| **Mass Assignment** | `fillable` / `guarded` protection |
+| **withCount / withSum** | Relationship aggregates as query extras |
+| **whereHas** | Filter by relationship existence |
 
 ## Crates
 
@@ -286,6 +295,212 @@ let q = query!(User,
 let users = User::find_where(&pool, q).await?;
 ```
 
+### 15. Conditional Query Building
+
+```rust
+let users = User::query()
+    .when(params.role.is_some(), |q| {
+        q.filter("role", params.role.unwrap())
+    })
+    .when(params.active, |q| q.filter("active", true))
+    .when(params.search.is_some(), |q| {
+        q.where_like("name", &format!("%{}%", params.search.unwrap()))
+    })
+    .order_by_desc("created_at")
+    .limit(20)
+    .get(&pool)
+    .await?;
+```
+
+### 16. Raw Expressions
+
+```rust
+let users = User::query()
+    .where_raw("LOWER(email) = LOWER($1)", vec!["admin@example.com".into()])
+    .get(&pool)
+    .await?;
+
+let stats = User::query()
+    .select(&["role", "COUNT(*) as count"])
+    .group_by(&["role"])
+    .having_raw("COUNT(*) BETWEEN 5 AND 100")
+    .get(&pool)
+    .await?;
+```
+
+### 17. Cursor Pagination
+
+```rust
+let result = Post::query()
+    .order_by_desc("created_at")
+    .cursor_paginate(&pool, CursorPage { after: None, limit: 20 })
+    .await?;
+
+println!("Next cursor: {:?}", result.next_cursor);
+println!("Has more: {}", result.has_more);
+```
+
+### 18. Chunking Large Datasets
+
+```rust
+User::query()
+    .filter("active", true)
+    .chunk(&pool, 500, |batch| async move {
+        for user in batch {
+            process_user(&user).await;
+        }
+        Ok(())
+    })
+    .await?;
+
+User::query()
+    .chunk_by_id(&pool, 500, |batch| async move {
+        process(batch).await
+    })
+    .await?;
+```
+
+### 19. Mass Assignment Protection
+
+```rust
+#[derive(Model, sqlx::FromRow)]
+#[model(table = "users", fillable = ["name", "email", "bio"])]
+pub struct User {
+    pub id: i64,
+    pub name: String,
+    pub email: String,
+    pub bio: Option<String>,
+    pub role: String,     // not fillable - will be ignored
+    pub is_admin: bool,   // not fillable - will be ignored
+}
+
+let user = User::create_returning(&pool, &[
+    ("name", "Alice".into()),
+    ("email", "alice@example.com".into()),
+    ("role", "admin".into()),   // silently dropped
+    ("is_admin", true.into()),   // silently dropped
+]).await?;
+```
+
+### 20. Model Observers
+
+```rust
+pub struct UserObserver;
+
+impl ModelObserver for UserObserver {
+    type Model = User;
+
+    async fn creating(&self, user: &mut User) -> OrmResult<()> {
+        user.email = user.email.to_lowercase();
+        Ok(())
+    }
+    async fn created(&self, user: &User) -> OrmResult<()> {
+        send_welcome_email(&user.email).await
+    }
+    async fn deleted(&self, user: &User) -> OrmResult<()> {
+        invalidate_cache("user", user.id).await
+    }
+}
+
+User::observe(UserObserver);
+```
+
+### 21. Global Query Scopes
+
+```rust
+pub struct ActiveScope;
+
+impl GlobalScope<User> for ActiveScope {
+    fn apply(&self, query: QueryBuilder<User>) -> QueryBuilder<User> {
+        query.filter("active", true)
+    }
+}
+
+User::add_global_scope(ActiveScope);
+
+let users = User::all(&pool).await?;  // automatically filtered by active=true
+
+let all = User::query()
+    .without_global_scope::<ActiveScope>()
+    .get(&pool)
+    .await?;
+```
+
+### 22. Relationship Aggregates (withCount / withSum)
+
+```rust
+let posts = Post::query()
+    .with_count("comments")
+    .with_count_as("published_comments", "comments", |q| q.filter("published", true))
+    .get(&pool)
+    .await?;
+
+for post in &posts {
+    println!("Total comments: {:?}", post.extras.get("comments_count"));
+    println!("Published: {:?}", post.extras.get("published_comments_count"));
+}
+
+let users = User::query()
+    .with_sum("orders", "total")
+    .with_avg("orders", "total")
+    .get(&pool)
+    .await?;
+```
+
+### 23. whereHas / whereDoesntHave
+
+```rust
+let posts = Post::query()
+    .where_has("comments", |q| q.filter("published", true))
+    .get(&pool)
+    .await?;
+
+let posts = Post::query()
+    .where_has_count("comments", 5, CountOp::GreaterThan)
+    .get(&pool)
+    .await?;
+
+let users = User::query()
+    .where_doesnt_have("posts")
+    .get(&pool)
+    .await?;
+```
+
+### 24. firstOrCreate / updateOrCreate
+
+```rust
+let user = User::first_or_create(&pool,
+    &[("email", "alice@example.com".into())],
+    &[("name", "Alice".into()), ("role", "user".into())],
+).await?;
+
+let user = User::update_or_create(&pool,
+    &[("email", "alice@example.com".into())],
+    &[("name", "Alice Updated".into())],
+).await?;
+```
+
+### 25. Model Replication
+
+```rust
+let original = Post::find_or_404(&pool, 1).await?;
+let mut copy = original.replicate();
+copy.title = format!("Copy of {}", original.title);
+let saved = Post::create_returning(&pool, &copy.to_fields()).await?;
+```
+
+### 26. withoutTimestamps / Event Muting
+
+```rust
+User::without_timestamps(|| async {
+    User::update_by_pk(&pool, 1, &[("views", 1000.into())]).await
+}).await?;
+
+User::without_events(|| async {
+    User::create(&pool, &[("name", "Seeded".into())]).await
+}).await?;
+```
+
 ## Model Attributes
 
 ### Struct-level
@@ -296,6 +511,14 @@ let users = User::find_where(&pool, q).await?;
 #[model(primary_key = "article_id")]   // Custom primary key column
 #[model(soft_delete)]                   // Enable soft deletes
 #[model(timestamps)]                    // Auto timestamps
+#[model(timestamps, created_at_col = "creation_date", updated_at_col = "modified_date")] // Custom timestamp columns
+#[model(touches = ["user"])]            // Update parent timestamp on write
+#[model(connection = "audit_db")]       // Per-model database connection
+#[model(uuid)]                          // UUID primary key
+#[model(ulid)]                          // ULID primary key
+#[model(fillable = ["name", "email"])]  // Allow mass assignment
+#[model(guarded = ["role", "is_admin"])] // Block mass assignment
+#[model(prunable)]                      // Enable model pruning
 pub struct Article { ... }
 ```
 
@@ -367,6 +590,33 @@ pub struct Post {
 | `.having(expr)` | HAVING clause |
 | `.paginate(page, per_page)` | Add pagination |
 
+### Conditional & Raw
+
+| Method | Description |
+|--------|-------------|
+| `.when(condition, fn)` | Apply query builder closure when condition is true |
+| `.when_else(condition, fn_true, fn_false)` | Conditional branching |
+| `.where_raw(sql, params)` | Raw WHERE clause |
+| `.select_raw(sql)` | Raw SELECT clause |
+| `.order_raw(sql)` | Raw ORDER BY clause |
+| `.having_raw(sql)` | Raw HAVING clause |
+| `.from_raw_sql(pool, sql, params)` | Execute raw SQL query |
+| `.tap(fn)` | Debug tap without modifying query |
+| `.dd()` | Debug: print SQL then panic (dev only) |
+
+### Relationship Filtering
+
+| Method | Description |
+|--------|-------------|
+| `.where_has(rel, closure)` | WHERE EXISTS (subquery) |
+| `.where_doesnt_have(rel, closure?)` | WHERE NOT EXISTS (subquery) |
+| `.where_has_count(rel, n, op)` | Filter by relationship count |
+| `.with_count(rel)` | Add count of related records as extra |
+| `.with_sum(rel, col)` | Add sum of related column as extra |
+| `.with_avg(rel, col)` | Add average of related column as extra |
+| `.with_max(rel, col)` | Add max of related column as extra |
+| `.with_min(rel, col)` | Add min of related column as extra |
+
 ### Aggregation
 
 | Method | Description |
@@ -380,11 +630,48 @@ pub struct Post {
 
 See the full [rok ecosystem roadmap](https://github.com/rok-rs/rok) for upcoming features including:
 
-- MySQL support
-- MSSQL support
+### v0.5.0 (Q4 2026)
+
+- Schema Builder with Blueprint API for code-first migrations
+- Migration system with run, rollback, reset, fresh commands
+- Auto-generate models from database schema
+- JSON column queries (where_json_contains, where_json_path)
+- Full-text search (PostgreSQL tsvector, MySQL MATCH, SQLite FTS5)
+- Sub-queries and Common Table Expressions (CTEs)
+- Window functions support
+
+### v0.6.0 (Q1 2027)
+
+- Attribute casting (json, datetime, bool, csv, encrypted)
+- Serialization control (hidden, visible, appends)
+- Accessors and mutators
+- Model factories with faker integration
+- Database transactions per test
+- Assertion helpers
+
+### v1.0.0 (Q2 2027)
+
+- MySQL support (already in progress)
+- MSSQL / SQL Server support
+- Redis cache integration
+- Axum / Actix-web integration
 - CLI tooling (rok-cli)
-- Redis caching integration
-- Framework integrations
+
+### Already Available
+
+- PostgreSQL support
+- SQLite support
+- Fluent query builder
+- Relationships (has_many, has_one, belongs_to, belongs_to_many)
+- Eager loading
+- Soft deletes
+- Auto timestamps
+- Pagination
+- Aggregations
+- Upsert operations
+- Model hooks
+- Transactions
+- Query logging
 
 ## Contributing
 

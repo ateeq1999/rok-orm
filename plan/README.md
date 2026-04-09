@@ -17,6 +17,7 @@
 | [11](./phase_11-casting-and-serialization.md) | Model Casting & Serialization | v0.6.0 | 🔜 Planned |
 | [12](./phase_12-testing-infrastructure.md) | Testing Infrastructure | v0.6.0 | 🔜 Planned |
 | [13](./phase_13-ecosystem.md) | Ecosystem (MSSQL, Redis, Axum) | v1.0.0 | 🔜 Planned |
+| [14](./phase_14-examples.md) | Examples Implementation | v0.5.0 | 🚧 In Progress |
 | [CLI](./orm-cli.md) | rok-cli — Command-Line Tool | separate crate | 🔜 Planned |
 
 ---
@@ -26,52 +27,25 @@
 | Version | Target | Phases |
 |---------|--------|--------|
 | v0.4.0 | Q3 2026 | 7, 8 |
-| v0.5.0 | Q4 2026 | 9, 10 |
-| v0.6.0 | Q1 2027 | 11, 12 |
-| v1.0.0 | Q2 2027 | 13 + stable API |
+| v0.5.0 | Q4 2026 | 9, 10, 14 |
 
----
-
-## Implementation Sequence
-
-Work phases in order. Within each phase, complete sub-sections top-to-bottom unless noted as parallel.
-
-### v0.4.0 — Sprint 1: Rich Relationships (Phase 7)
-Dependency order matters here — build base types before higher-level combinators.
+### v0.5.0 — Sprint 3: Schema & Advanced Query (Phases 9, 10, 14)
+Dependency order matters — Phase 9.1 (Schema Builder) must come before 9.2 (Migrations). Phase 10 is independent. Phase 14 documents examples.
 
 ```
-7.1  Many-to-Many pivot (ManyToMany struct, attach/detach/sync/toggle/with_pivot)
-7.2  Has-Many-Through
-7.3  Has-One-Through
-7.4  Polymorphic (morphOne → morphMany → morphTo → morphToMany → morphedByMany)
-7.5  Relationship write ops (create/save through relation, associate/dissociate)
-7.6  whereHas / whereDoesntHave
-7.7  withCount / withSum / withAvg / withMin / withMax
-7.8  firstOrCreate / firstOrNew / updateOrCreate
-7.9  replicate() / is() / to_fields()
-7.10 UUID / ULID primary keys
-7.11 Per-model database connection
-7.12 withoutTimestamps + custom column names
-7.13 Model pruning
-7.14 Event muting (without_events / save_quietly)
+9.1  Schema builder / Blueprint API
+9.2  Migration system (depends on 9.1)
+9.3  Auto-model generation from DB (depends on 9.1 inspector)
+10.1 JSON column support
+10.2 Full-text search
+10.3 Sub-queries and CTEs
+10.4 Window functions (extends 8.2 select_raw)
+14.1 Rich Relationships examples (Phase 7)
+14.2 Developer Ergonomics examples (Phase 8)
+14.3 Schema Builder examples (Phase 9)
+14.4 Migration System examples (Phase 9)
+14.5 Advanced Query examples (Phase 10)
 ```
-
-### v0.4.0 — Sprint 2: Developer Ergonomics (Phase 8)
-All sub-sections are independent — can be worked in parallel.
-
-```
-8.1  when() / when_else() conditional chaining
-8.2  Raw expressions (where_raw / select_raw / order_raw / having_raw / from_raw_sql)
-8.3  tap() / dd() debugging utilities
-8.4  chunk() / chunk_by_id() / into_stream()
-8.5  Cursor pagination (CursorPage / CursorResult)
-8.6  fill() + mass assignment (fillable / guarded)
-8.7  Model observers
-8.8  Global query scopes
-8.9  touches — parent timestamp propagation
-```
-
-### v0.5.0 — Schema & Advanced Query (Phases 9, 10)
 Phase 9.1 (Schema Builder) must come before 9.2 (Migrations). Phase 10 is independent.
 
 ```
@@ -224,8 +198,25 @@ rok-orm/
 │   ├── phase_10-advanced-query.md
 │   ├── phase_11-casting-and-serialization.md
 │   ├── phase_12-testing-infrastructure.md
+│   ├── phase_14-examples.md
 │   ├── phase_13-ecosystem.md
 │   └── orm-cli.md
+│
+├── examples/                    ← Working examples with Docker
+│   ├── docker-compose.yml       ← All services combined
+│   ├── docker-compose.14a.yml   ← Phase 14A: Core Foundation
+│   ├── docker-compose.14b.yml   ← Phase 14B: Relationships
+│   ├── docker-compose.14c.yml   ← Phase 14C: Advanced Features
+│   ├── README.md
+│   ├── 14a-core/                ← Core examples (Phases 1-6)
+│   │   ├── Cargo.toml
+│   │   └── src/main.rs
+│   ├── 14b-relationships/        ← Relationship examples (Phases 7-8)
+│   │   ├── Cargo.toml
+│   │   └── src/main.rs
+│   └── 14c-advanced/            ← Advanced examples (Phases 9-13)
+│       ├── Cargo.toml
+│       └── src/main.rs
 │
 ├── src/
 │   ├── model/          model.rs, pg_model.rs, sqlite_model.rs, mysql_model.rs

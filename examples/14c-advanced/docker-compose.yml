@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rok-postgres-14c
+    environment:
+      POSTGRES_USER: rok
+      POSTGRES_PASSWORD: rokpass
+      POSTGRES_DB: rok_orm_14c
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rok -d rok_orm_14c"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mysql:
+    image: mysql:8
+    container_name: rok-mysql-14c
+    environment:
+      MYSQL_ROOT_PASSWORD: rokpass
+      MYSQL_DATABASE: rok_orm_14c
+      MYSQL_USER: rok
+      MYSQL_PASSWORD: rokpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    container_name: rok-redis-14c
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  mysql_data:
+  redis_data:
