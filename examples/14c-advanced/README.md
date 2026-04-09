@@ -53,8 +53,24 @@ cp .env.example .env
 
 ### 3. Run the Example
 
+Choose which example to run:
+
 ```bash
-cargo run
+# Run all examples
+cargo run all
+
+# Run specific examples
+cargo run schema          # Schema builder / Blueprint API
+cargo run json            # JSON column queries
+cargo run fts             # Full-text search
+cargo run subqueries      # Sub-queries and CTEs
+cargo run windows         # Window functions
+```
+
+To see all SQL queries:
+
+```bash
+RUST_LOG=debug cargo run json
 ```
 
 Expected output:

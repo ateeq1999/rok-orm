@@ -1,0 +1,85 @@
+//! Example 7: Aggregations
+//! 
+//! Demonstrates: count, sum, avg, min, max
+
+use rok_orm::Model;
+use serde::{Deserialize, Serialize};
+
+#[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
+#[model(table = "users")]
+pub struct User {
+    #[model(primary_key)]
+    pub id: i64,
+    pub name: String,
+    pub active: bool,
+    pub age: i32,
+}
+
+#[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
+pub struct Order {
+    #[model(primary_key)]
+    pub id: i64,
+    pub user_id: i64,
+    pub total: f64,
+}
+
+pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
+    println!("\n📋 Aggregations\n");
+    
+    // Create users
+    for i in 1..=5 {
+        User::create(pool, &[
+            ("name", format!("User {}", i)),
+            ("active", true.into()),
+            ("age", (20 + i).into()),
+        ]).await?;
+    }
+    println!("1. Created 5 users (ages 21-25)");
+    
+    // Create orders
+    for i in 1..=3 {
+        Order::create(pool, &[
+            ("user_id", 1i64.into()),
+            ("total", (100.0 * i as f64).into()),
+        ]).await?;
+    }
+    println!("2. Created 3 orders for user #1 (100, 200, 300)");
+    
+    // Count
+    println!("3. Count operations...");
+    let total: i64 = User::count(pool).await?;
+    println!("   Total users: {}", total);
+    
+    let active_count = User::query().filter("active", true).count(pool).await?;
+    println!("   Active users: {}", active_count);
+    
+    // Sum
+    println!("4. Sum operations...");
+    let revenue: f64 = Order::sum("total", pool).await?;
+    println!("   Total revenue: ${:.2}", revenue);
+    
+    // Avg
+    println!("5. Average operations...");
+    let avg_age: f64 = User::avg("age", pool).await?;
+    println!("   Average user age: {:.1}", avg_age);
+    
+    let avg_order: f64 = Order::avg("total", pool).await?;
+    println!("   Average order value: ${:.2}", avg_order);
+    
+    // Min/Max
+    println!("6. Min/Max operations...");
+    let oldest: Option<i32> = User::min("age", pool).await?;
+    let youngest: Option<i32> = User::max("age", pool).await?;
+    println!("   Youngest user age: {:?}", oldest);
+    println!("   Oldest user age: {:?}", youngest);
+    
+    // With query builder
+    println!("7. Query builder aggregations...");
+    let (sql, _) = User::query()
+        .filter("active", true)
+        .sum_sql("age");
+    println!("   SUM SQL: {}", sql);
+    
+    println!("\n✅ Aggregations work correctly");
+    Ok(())
+}

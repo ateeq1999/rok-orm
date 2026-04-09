@@ -55,8 +55,30 @@ cp .env.example .env
 
 ### 3. Run the Example
 
+Choose which example to run:
+
 ```bash
-cargo run
+# Run all examples
+cargo run all
+
+# Run specific examples
+cargo run many_to_many     # BelongsToMany with pivot access
+cargo run where_has        # Filter by relationship existence
+cargo run with_count       # Relationship aggregates as extras
+cargo run first_or_create # Find-or-create patterns
+cargo run without_timestamps # Suppress timestamp injection
+cargo run event_muting    # Suppress model events
+cargo run when             # Conditional query chaining
+cargo run raw             # Raw SQL expressions
+cargo run cursor          # Cursor-based pagination
+cargo run observers       # Model lifecycle observers
+cargo run scopes          # Global query scopes
+```
+
+To see all SQL queries:
+
+```bash
+RUST_LOG=debug cargo run where_has
 ```
 
 Expected output includes:

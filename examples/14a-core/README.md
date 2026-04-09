@@ -40,8 +40,29 @@ cp .env.example .env
 
 ### 3. Run the Example
 
+Choose which example to run:
+
 ```bash
+# Run all examples
 cargo run
+
+# Run specific examples
+cargo run basic_model       # Model definition and metadata
+cargo run crud             # Create, Read, Update, Delete
+cargo run relationships    # has_many, belongs_to, eager loading
+cargo run soft_deletes     # Soft delete patterns
+cargo run timestamps       # Auto timestamps
+cargo run pagination       # Page<T> pagination
+cargo run aggregations     # count, sum, avg, min, max
+cargo run transactions     # Tx wrapper
+cargo run scopes           # Query scopes
+cargo run logging          # Query logging
+```
+
+To see all SQL queries:
+
+```bash
+RUST_LOG=debug cargo run crud
 ```
 
 You should see output like:
