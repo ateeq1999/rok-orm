@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: Logger, LogLevel, QueryTimer
 
-use rok_orm::{Model, logging::{Logger, LogLevel, QueryTimer}};
+use rok_orm::{Model, PgModel, logging::{Logger, LogLevel, QueryTimer}};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]

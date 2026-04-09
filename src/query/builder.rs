@@ -247,49 +247,47 @@ impl<T> QueryBuilder<T> {
 
     cfg_if::cfg_if! {
         if #[cfg(feature = "postgres")] {
-            use sqlx::postgres::PgRow;
-
             /// Execute the query and return all matching rows.
-            pub async fn get(self, pool: &PgPool) -> Result<Vec<T>, sqlx::Error>
+            pub async fn get(self, pool: &sqlx::PgPool) -> Result<Vec<T>, sqlx::Error>
             where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
             {
                 crate::executor::postgres::fetch_all(pool, self).await
             }
 
             /// Execute the query and return the first matching row, if any.
-            pub async fn first(self, pool: &PgPool) -> Result<Option<T>, sqlx::Error>
+            pub async fn first(self, pool: &sqlx::PgPool) -> Result<Option<T>, sqlx::Error>
             where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
             {
                 crate::executor::postgres::fetch_optional(pool, self).await
             }
 
             /// Execute the query and return the count of matching rows.
-            pub async fn count(self, pool: &PgPool) -> Result<i64, sqlx::Error>
+            pub async fn count(self, pool: &sqlx::PgPool) -> Result<i64, sqlx::Error>
             where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
             {
                 crate::executor::postgres::count(pool, self).await
             }
 
             /// Execute the query and return all matching rows as a Vec of optional rows.
-            pub async fn get_optional(self, pool: &PgPool) -> Result<Vec<T>, sqlx::Error>
+            pub async fn get_optional(self, pool: &sqlx::PgPool) -> Result<Vec<T>, sqlx::Error>
             where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
             {
                 crate::executor::postgres::fetch_all(pool, self).await
             }
 
-            /// Paginate the query and return a paginated result.
-            pub async fn paginate(
+            /// Execute the query with pagination and return a paginated result.
+            pub async fn execute_paginated(
                 self,
-                pool: &PgPool,
+                pool: &sqlx::PgPool,
                 page: i64,
                 per_page: i64,
             ) -> Result<crate::pagination::Page<T>, sqlx::Error>
             where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
             {
                 let total = crate::executor::postgres::count(pool, self.clone()).await?;
                 let data = crate::executor::postgres::fetch_all(pool, self.paginate(page, per_page)).await?;

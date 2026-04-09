@@ -2,13 +2,12 @@
 //! 
 //! Demonstrates: has_many, belongs_to relationships
 
-use rok_orm::{Model, PgModel, PgModelExt, Relations};
+use rok_orm::{Model, PgModel, Relations};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, Relations, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
 #[model(table = "users")]
 pub struct User {
-    #[model(primary_key)]
     pub id: i64,
     pub name: String,
     pub email: String,
@@ -20,7 +19,6 @@ pub struct User {
 #[derive(Model, Relations, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
 #[model(table = "posts")]
 pub struct Post {
-    #[model(primary_key)]
     pub id: i64,
     pub title: String,
     pub user_id: i64,
@@ -42,7 +40,7 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     // Create posts
     for i in 1..=3 {
         Post::create(pool, &[
-            ("title", format!("Post {}", i)),
+            ("title", format!("Post {}", i).into()),
             ("user_id", user.id.into()),
             ("published", true.into()),
         ]).await?;

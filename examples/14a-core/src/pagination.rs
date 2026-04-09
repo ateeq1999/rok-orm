@@ -20,7 +20,7 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     // Create some posts
     for i in 1..=15 {
         Post::create(pool, &[
-            ("title", format!("Post #{}", i)),
+            ("title", format!("Post #{}", i).into()),
             ("user_id", 1i64.into()),
         ]).await?;
     }

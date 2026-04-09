@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
 #[model(table = "articles", timestamps)]
 pub struct Article {
-    #[model(primary_key)]
     pub id: i64,
     pub title: String,
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,

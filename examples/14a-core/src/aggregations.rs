@@ -29,7 +29,7 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     // Create users
     for i in 1..=5 {
         User::create(pool, &[
-            ("name", format!("User {}", i)),
+            ("name", format!("User {}", i).into()),
             ("active", true.into()),
             ("age", (20 + i).into()),
         ]).await?;
@@ -55,21 +55,21 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     
     // Sum
     println!("4. Sum operations...");
-    let revenue: f64 = Order::sum("total", pool).await?;
-    println!("   Total revenue: ${:.2}", revenue);
+    let revenue: Option<f64> = Order::sum(pool, "total").await?;
+    println!("   Total revenue: ${:.2}", revenue.unwrap_or(0.0));
     
     // Avg
     println!("5. Average operations...");
-    let avg_age: f64 = User::avg("age", pool).await?;
-    println!("   Average user age: {:.1}", avg_age);
+    let avg_age: Option<f64> = User::avg(pool, "age").await?;
+    println!("   Average user age: {:.1}", avg_age.unwrap_or(0.0));
     
-    let avg_order: f64 = Order::avg("total", pool).await?;
-    println!("   Average order value: ${:.2}", avg_order);
+    let avg_order: Option<f64> = Order::avg(pool, "total").await?;
+    println!("   Average order value: ${:.2}", avg_order.unwrap_or(0.0));
     
     // Min/Max
     println!("6. Min/Max operations...");
-    let oldest: Option<i32> = User::min("age", pool).await?;
-    let youngest: Option<i32> = User::max("age", pool).await?;
+    let oldest: Option<f64> = User::min(pool, "age").await?;
+    let youngest: Option<f64> = User::max(pool, "age").await?;
     println!("   Youngest user age: {:?}", oldest);
     println!("   Oldest user age: {:?}", youngest);
     

@@ -108,6 +108,7 @@ RUST_LOG=debug cargo run
 ```
 
 This shows:
+
 - SQL queries executed
 - Parameters passed
 - Query execution time
@@ -125,7 +126,8 @@ services:
       - "8080:8080"
 ```
 
-Then visit http://localhost:8080
+Then visit http://localhost:8080/?pgsql=postgres&username=rok&db=rok_orm_14a&ns=public
+
 - System: PostgreSQL
 - Server: postgres
 - Username: rok
@@ -146,8 +148,8 @@ Then visit http://localhost:8080
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable     | Default                                           | Description                  |
+| ------------ | ------------------------------------------------- | ---------------------------- |
 | DATABASE_URL | postgres://rok:rokpass@localhost:5432/rok_orm_14a | PostgreSQL connection string |
 
 ## Stopping
