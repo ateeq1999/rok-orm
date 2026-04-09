@@ -33,6 +33,7 @@ examples/
 Choose an example based on what you want to learn:
 
 ### 14A - Core Foundation (Beginner)
+
 Basic features from Phases 1-6: models, CRUD, relationships, timestamps, pagination, hooks.
 
 ```bash
@@ -43,6 +44,7 @@ cargo run
 ```
 
 ### 14B - Relationships & Ergonomics (Intermediate)
+
 Advanced relationships and developer ergonomics from Phases 7-8.
 
 ```bash
@@ -53,6 +55,7 @@ cargo run
 ```
 
 ### 14C - Advanced Features (Advanced)
+
 Schema builder, migrations, JSON, full-text search from Phases 9-13.
 
 ```bash
@@ -61,6 +64,29 @@ docker-compose up -d
 cp .env.example .env
 cargo run
 ```
+
+## Running 14A Examples
+
+Currently **running** examples in `14a-core/src/main.rs`:
+
+```bash
+cargo run basic_model     # Model definition and metadata
+cargo run crud            # Create, Read, Update, Delete
+cargo run pagination      # Page<T> pagination
+cargo run aggregations    # count, sum, avg, min, max
+cargo run all             # Run all running examples
+```
+
+**Not yet running** (awaiting bug fixes):
+
+- `relationships` - has_many, belongs_to, eager loading
+- `soft_deletes` - Soft delete patterns
+- `timestamps` - Auto timestamps
+- `transactions` - Tx wrapper
+- `query_scopes` - Query scopes
+- `query_logging` - Query logging
+
+See [issues/README.md](../issues/README.md) for bug fix progress.
 
 ## Features by Phase
 
