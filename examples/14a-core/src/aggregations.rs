@@ -30,6 +30,7 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     for i in 1..=5 {
         User::create(pool, &[
             ("name", format!("User {}", i).into()),
+            ("email", format!("user{}@example.com", i).into()),
             ("active", true.into()),
             ("age", (20 + i).into()),
         ]).await?;
