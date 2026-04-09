@@ -202,78 +202,94 @@ pub trait PgModelExt: PgModel {
         postgres::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
     }
 
-    /// Fetch all records in chunks, returning them as a `Vec<Vec<Self>>`.
+    /// Process all matching rows in chunks using a callback.
     ///
     /// Iterates with LIMIT/OFFSET until an empty batch is returned.
-    /// Use this when you need to process all records without loading everything into memory.
+    /// The callback receives each `Vec<Self>` batch and can do async work.
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// let batches = User::query().chunk_collect(&pool, 100).await?;
-    /// for batch in batches {
+    /// User::chunk(&pool, User::query().filter("active", true), 500, |batch| async move {
     ///     for user in batch {
-    ///         process(&user).await;
+    ///         send_email(&user).await;
     ///     }
-    /// }
+    ///     Ok(())
+    /// }).await?;
     /// ```
-    async fn chunk_collect(
+    async fn chunk<F, Fut>(
         pool: &PgPool,
         builder: QueryBuilder<Self>,
         chunk_size: usize,
-    ) -> Result<Vec<Vec<Self>>, sqlx::Error>
-    where Self: Sized,
+        mut callback: F,
+    ) -> crate::errors::OrmResult<()>
+    where
+        Self: Sized,
+        F: FnMut(Vec<Self>) -> Fut,
+        Fut: std::future::Future<Output = crate::errors::OrmResult<()>>,
     {
-        let mut results = Vec::new();
         let mut offset = 0usize;
         loop {
             let batch = postgres::fetch_all(
                 pool,
                 builder.clone().limit(chunk_size).offset(offset),
-            ).await?;
+            ).await.map_err(crate::errors::OrmError::from)?;
             if batch.is_empty() {
                 break;
             }
             offset += batch.len();
-            results.push(batch);
+            callback(batch).await?;
         }
-        Ok(results)
+        Ok(())
     }
 
     /// Chunk by primary key — stable even when rows are deleted mid-run.
     ///
-    /// Uses `WHERE pk > last_id ORDER BY pk LIMIT chunk_size` to avoid
-    /// drift when records are inserted or deleted between chunks.
-    async fn chunk_by_id_collect(
+    /// Uses `WHERE pk > last_id ORDER BY pk ASC LIMIT chunk_size` to avoid
+    /// drift from concurrent deletes/inserts.
+    ///
+    /// `get_id` extracts the i64 PK from each row for cursor tracking.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// User::chunk_by_id(&pool, User::query(), 500, |u| u.id, |batch| async move {
+    ///     process(batch).await?;
+    ///     Ok(())
+    /// }).await?;
+    /// ```
+    async fn chunk_by_id<F, Fut>(
         pool: &PgPool,
         builder: QueryBuilder<Self>,
         chunk_size: usize,
-    ) -> Result<Vec<Vec<Self>>, sqlx::Error>
-    where Self: Sized,
+        get_id: impl Fn(&Self) -> i64,
+        mut callback: F,
+    ) -> crate::errors::OrmResult<()>
+    where
+        Self: Sized,
+        F: FnMut(Vec<Self>) -> Fut,
+        Fut: std::future::Future<Output = crate::errors::OrmResult<()>>,
     {
-        use crate::query::SqlValue;
         let pk_col = Self::primary_key();
-        let mut results = Vec::new();
         let mut last_id: Option<i64> = None;
         loop {
-            let mut qb = builder.clone()
-                .order_by(pk_col)
-                .limit(chunk_size);
+            let mut qb = builder.clone().order_by(pk_col).limit(chunk_size);
             if let Some(id) = last_id {
                 qb = qb.where_gt(pk_col, SqlValue::Integer(id));
             }
-            let batch = postgres::fetch_all(pool, qb).await?;
+            let batch = postgres::fetch_all(pool, qb)
+                .await.map_err(crate::errors::OrmError::from)?;
             if batch.is_empty() {
                 break;
             }
-            last_id = None; // would need pk extraction — placeholder
-            results.push(batch);
-            // Break if we got fewer than chunk_size (last page)
-            if results.last().map_or(0, |b: &Vec<Self>| b.len()) < chunk_size {
+            last_id = batch.last().map(|r| get_id(r));
+            let is_last = batch.len() < chunk_size;
+            callback(batch).await?;
+            if is_last {
                 break;
             }
         }
-        Ok(results)
+        Ok(())
     }
 
     /// Cursor-based pagination. Fetches `limit + 1` rows to detect `has_more`.

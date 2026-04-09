@@ -96,7 +96,7 @@ impl OrmError {
         matches!(self, Self::Constraint(_))
     }
 
-    #[cfg(any(feature = "postgres", feature = "sqlite"))]
+    #[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
     pub fn from_sqlx_error(err: sqlx::Error) -> Self {
         match err {
             sqlx::Error::RowNotFound => Self::NotFound {
@@ -109,13 +109,20 @@ impl OrmError {
     }
 }
 
+#[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
+impl From<sqlx::Error> for OrmError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::from_sqlx_error(err)
+    }
+}
+
 pub type OrmResult<T> = Result<T, OrmError>;
 
 pub trait IntoOrmResult<T> {
     fn into_orm_result(self) -> OrmResult<T>;
 }
 
-#[cfg(any(feature = "postgres", feature = "sqlite"))]
+#[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
 impl<T> IntoOrmResult<T> for Result<T, sqlx::Error> {
     fn into_orm_result(self) -> OrmResult<T> {
         self.map_err(OrmError::from_sqlx_error)

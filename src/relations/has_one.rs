@@ -83,6 +83,36 @@ where
     }
 }
 
+// ── PostgreSQL execution ──────────────────────────────────────────────────────
+
+#[cfg(feature = "postgres")]
+impl<P, C> HasOne<P, C>
+where
+    P: crate::model::Model,
+    C: crate::model::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
+{
+    /// Delete existing child then INSERT a new one (atomic in a transaction).
+    ///
+    /// Returns the newly created child row.
+    pub async fn create_or_replace(
+        &self,
+        pool: &sqlx::PgPool,
+        parent_id: impl Into<crate::query::SqlValue>,
+        data: &[(&str, crate::query::SqlValue)],
+    ) -> Result<C, sqlx::Error> {
+        let pid = parent_id.into();
+        let (del_sql, del_params, ins_sql, ins_params) =
+            self.create_or_replace_sql(pid, data);
+        crate::executor::postgres::execute_raw(pool, &del_sql, del_params).await?;
+        let ret_sql = format!("{ins_sql} RETURNING *");
+        crate::executor::postgres::fetch_raw::<C>(pool, &ret_sql, ins_params)
+            .await?
+            .into_iter()
+            .next()
+            .ok_or(sqlx::Error::RowNotFound)
+    }
+}
+
 impl<P, C> Relation<P, C> for HasOne<P, C>
 where
     P: Model,

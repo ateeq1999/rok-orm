@@ -146,6 +146,39 @@ where
         crate::executor::sqlite::execute_raw(pool, &sql, params).await
     }
 
+    /// Build UPDATE-or-INSERT SQL for a child: sets its FK to the parent ID.
+    ///
+    /// If `child_pk_val` is `Some`, it's an UPDATE (the child already has a PK).
+    /// If `None`, it's an INSERT.
+    pub fn save_sql(
+        &self,
+        parent_id: SqlValue,
+        child_pk_val: Option<SqlValue>,
+        data: &[(&str, SqlValue)],
+    ) -> (String, Vec<SqlValue>) {
+        if let Some(pk_val) = child_pk_val {
+            // UPDATE: inject FK then remaining data columns
+            let mut all = vec![(&self.foreign_key as &str, parent_id)];
+            all.extend_from_slice(data);
+            let set_clauses: Vec<String> = all.iter().enumerate()
+                .map(|(i, (col, _))| format!("{col} = ${}", i + 1))
+                .collect();
+            let mut params: Vec<SqlValue> = all.into_iter().map(|(_, v)| v).collect();
+            params.push(pk_val);
+            let sql = format!(
+                "UPDATE {} SET {} WHERE {} = ${}",
+                self.child_table,
+                set_clauses.join(", "),
+                C::primary_key(),
+                params.len()
+            );
+            (sql, params)
+        } else {
+            // INSERT: use create_sql
+            self.create_sql(parent_id, data)
+        }
+    }
+
     /// Generate bulk INSERT SQL for multiple child rows, each with FK injected.
     pub fn create_many_sql(
         &self,
@@ -175,66 +208,32 @@ where
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::Model;
+// ── PostgreSQL async execution: save ─────────────────────────────────────────
 
-    struct User;
-    impl Model for User {
-        fn table_name() -> &'static str { "users" }
-        fn columns() -> &'static [&'static str] { &["id", "name"] }
-    }
-
-    struct Post;
-    impl Model for Post {
-        fn table_name() -> &'static str { "posts" }
-        fn columns() -> &'static [&'static str] { &["id", "user_id", "title"] }
-    }
-
-    fn posts_rel() -> HasMany<User, Post> {
-        HasMany::new("users", "id", "posts", "id", "user_id".to_string())
-    }
-
-    #[test]
-    fn create_sql_prepends_fk() {
-        let rel = posts_rel();
-        let (sql, params) = rel.create_sql(
-            SqlValue::Integer(1),
-            &[("title", SqlValue::Text("Hello".into()))],
-        );
-        assert!(sql.contains("INSERT INTO posts"), "sql: {sql}");
-        assert!(sql.contains("user_id"), "sql: {sql}");
-        assert_eq!(params[0], SqlValue::Integer(1));
-    }
-
-    #[test]
-    fn associate_sql_updates_fk() {
-        let rel = posts_rel();
-        let (sql, _) = rel.associate_sql(SqlValue::Integer(5), SqlValue::Integer(1));
-        assert!(sql.contains("UPDATE posts SET user_id"));
-        assert!(sql.contains("WHERE id"));
-    }
-
-    #[test]
-    fn dissociate_sql_sets_null() {
-        let rel = posts_rel();
-        let (sql, params) = rel.dissociate_sql(SqlValue::Integer(5));
-        assert!(sql.contains("SET user_id = NULL"));
-        assert_eq!(params[0], SqlValue::Integer(5));
-    }
-
-    #[test]
-    fn create_many_sql_injects_fk_in_each_row() {
-        let rel = posts_rel();
-        let row1: &[(&str, SqlValue)] = &[("title", SqlValue::Text("Post 1".into()))];
-        let row2: &[(&str, SqlValue)] = &[("title", SqlValue::Text("Post 2".into()))];
-        let (sql, params) = rel.create_many_sql(SqlValue::Integer(7), &[row1, row2]);
-        assert!(sql.starts_with("INSERT INTO posts"));
-        assert!(sql.contains("user_id"));
-        // 2 rows × 2 columns each = 4 params
-        assert_eq!(params.len(), 4);
-        assert_eq!(params[0], SqlValue::Integer(7)); // first row FK
-        assert_eq!(params[2], SqlValue::Integer(7)); // second row FK
+#[cfg(feature = "postgres")]
+impl<P, C> HasMany<P, C>
+where
+    P: Model,
+    C: Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
+{
+    /// Insert or update a child row with the parent FK injected.
+    ///
+    /// - `child_pk_val = None` → INSERT (new child)
+    /// - `child_pk_val = Some(id)` → UPDATE (existing child by PK)
+    ///
+    /// `data` is the child's non-FK columns. The FK is automatically prepended.
+    pub async fn save(
+        &self,
+        pool: &sqlx::PgPool,
+        parent_id: impl Into<SqlValue>,
+        child_pk_val: Option<SqlValue>,
+        data: &[(&str, SqlValue)],
+    ) -> Result<u64, sqlx::Error> {
+        let (sql, params) = self.save_sql(parent_id.into(), child_pk_val, data);
+        crate::executor::postgres::execute_raw(pool, &sql, params).await
     }
 }
+
+#[cfg(test)]
+#[path = "has_many_tests.rs"]
+mod tests;

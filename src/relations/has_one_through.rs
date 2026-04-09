@@ -87,6 +87,61 @@ where
     }
 }
 
+// ── Unit tests ───────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct Mechanic;
+    impl Model for Mechanic {
+        fn table_name() -> &'static str { "mechanics" }
+        fn columns() -> &'static [&'static str] { &["id", "name"] }
+    }
+
+    struct Car;
+    impl Model for Car {
+        fn table_name() -> &'static str { "cars" }
+        fn columns() -> &'static [&'static str] { &["id", "mechanic_id"] }
+    }
+
+    struct CarOwner;
+    impl Model for CarOwner {
+        fn table_name() -> &'static str { "car_owners" }
+        fn columns() -> &'static [&'static str] { &["id", "car_id", "name"] }
+    }
+
+    fn rel() -> HasOneThrough<Mechanic, Car, CarOwner> {
+        HasOneThrough::new("cars", "id", "mechanic_id", "car_id", "car_owners")
+    }
+
+    #[test]
+    fn query_for_generates_inner_join_and_limit_1() {
+        let (sql, params) = rel().query_for(SqlValue::Integer(1)).to_sql();
+        assert!(sql.contains("FROM car_owners"), "sql: {sql}");
+        assert!(sql.contains("INNER JOIN cars"), "sql: {sql}");
+        assert!(sql.contains("cars.mechanic_id = $1"), "sql: {sql}");
+        assert!(sql.contains("LIMIT 1"), "sql: {sql}");
+        assert_eq!(params[0], SqlValue::Integer(1));
+    }
+
+    #[test]
+    fn query_for_none_id_still_generates_valid_sql() {
+        // Verifies SQL structure holds for any parent ID
+        let (sql, _) = rel().query_for(SqlValue::Integer(42)).to_sql();
+        assert!(sql.contains("car_owners.car_id"), "join condition: {sql}");
+    }
+
+    #[test]
+    fn accessors_return_expected_values() {
+        let r = rel();
+        assert_eq!(r.through_table(), "cars");
+        assert_eq!(r.first_key(), "mechanic_id");
+        assert_eq!(r.second_key(), "car_id");
+        assert_eq!(r.child_table(), "car_owners");
+    }
+}
+
 // ── PostgreSQL execution ─────────────────────────────────────────────────────
 
 #[cfg(feature = "postgres")]

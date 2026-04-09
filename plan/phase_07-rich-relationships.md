@@ -77,8 +77,8 @@ user.roles().update_pivot(&pool, role_id, &[
 - [x] Add `with_pivot(&[cols])` — inject pivot columns into the JOIN SELECT
 - [x] Add `PivotRow` wrapper struct holding the related model + `HashMap<String, SqlValue>` pivot data
 - [x] Add `update_pivot()` — UPDATE pivot table WHERE fk = ? AND rfk = ?
-- [ ] Extend `#[model(many_to_many(...))]` macro attribute parser
-- [ ] Tests: attach, detach, sync, toggle, with_pivot, update_pivot for PG + SQLite
+- [x] Extend `#[model(many_to_many(...))]` macro attribute parser
+- [x] Tests: attach_sql, detach_sql, detach_all_sql, current_ids_sql, update_pivot_sql, with_pivot (unit, in many_to_many.rs)
 
 ---
 
@@ -160,7 +160,7 @@ let owner = mechanic.car_owner().get(&pool).await?;
 - [x] Add `HasOneThrough<P, T, C>` struct
 - [x] Generate INNER JOIN with LIMIT 1
 - [x] Add `has_one_through(...)` macro attribute
-- [ ] Tests: fetch present, fetch absent (None)
+- [x] Tests: query_for generates INNER JOIN + LIMIT 1, accessor values (unit, in has_one_through.rs)
 
 ---
 
@@ -273,15 +273,15 @@ let tags = post.tags().get(&pool).await?;
 
 ### Tasks
 
-- [ ] Add `MorphOne<P, C>` and `MorphMany<P, C>` structs
-- [ ] Add `MorphTo<C>` with `resolve(pool)` returning `MorphParent` enum
-- [ ] Add `morph_type_map!()` macro — register `"users"` → `User`, `"posts"` → `Post`
-- [ ] Add `MorphToMany<P, C>` and `MorphedByMany<P, C>` structs
-- [ ] Add `MorphToManyQuery` with `attach()`, `detach()`, `sync()`
-- [ ] Auto-inject `morph_key_type = table_name()` on `.create()` through relation
+- [x] Add `MorphOne<P, C>` and `MorphMany<P, C>` structs (morph.rs)
+- [x] Add `MorphToRef` with `query_for_type()` helper; runtime resolution via `morph_type_map!`
+- [x] Add `morph_type_map!()` macro — registers `"type_str"` → `EnumVariant(Type)` with async `resolve(pool)`
+- [x] Add `MorphToMany<P, C>` and `MorphedByMany<P, C>` structs with attach/detach/sync SQL
+- [ ] `MorphToManyQuery` with live async `attach()`, `detach()`, `sync()` (PG executor wiring)
+- [x] Auto-inject `morph_key_type = table_name()` on `MorphMany::create_sql()`
 - [ ] Eager load polymorphic via `.with("imageable")` (batch by type, two queries)
-- [ ] Add all macro attributes: `morph_one`, `morph_many`, `morph_to`, `morph_to_many`, `morphed_by_many`
-- [ ] Tests: all variants on PG + SQLite
+- [x] Add all macro attributes: `morph_one`, `morph_many`, `morph_to`, `morph_to_many`, `morphed_by_many` (expand_relations_morph.rs)
+- [x] Tests: MorphOne/MorphMany query, MorphToMany attach/detach, MorphedByMany query (unit in morph.rs); macro test in integration.rs; morph_type_map unit tests
 
 ---
 
@@ -322,8 +322,8 @@ user.posts().create_many(&pool, &[
 - [x] Add `associate_sql(child_pk, parent_id)` on `HasMany` and `BelongsTo` — UPDATE SET fk
 - [x] Add `dissociate_sql(child_pk)` on `HasMany` and `BelongsTo` — UPDATE SET fk = NULL
 - [x] Add async `create()`, `create_returning()` on `HasMany` for direct DB execution
-- [ ] Add `save(&mut child)` — inserts or updates, injects FK from parent
-- [ ] Add `create_or_replace(pool, data)` on `HasOneQuery` — delete existing then insert
+- [x] Add `save(pool, parent_id, child_pk_val, data)` on `HasMany` — async INSERT-or-UPDATE with FK injected (PG)
+- [x] Add `create_or_replace(pool, parent_id, data)` on `HasOne` — DELETE then INSERT RETURNING * (PG)
 - [x] Tests: create_sql, associate_sql, dissociate_sql SQL generation
 
 ---

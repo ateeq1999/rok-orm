@@ -59,6 +59,8 @@ pub mod relations;
 pub use relations::{
     BelongsTo, HasMany, HasManyThrough, HasOne, HasOneThrough,
     ManyToMany, BelongsToMany, PivotRow, Relation, Relations,
+    MorphOne, MorphMany, MorphToRef, MorphToMany, MorphedByMany,
+    RelationMeta,
 };
 
 pub use relations::eager::{BelongsToEager, HasManyEager, HasOneEager};
@@ -81,6 +83,9 @@ pub use connection::ConnectionRegistry;
 pub use observer::{ModelObserver, ObserverEvent, ObserverRegistry};
 pub mod errors;
 pub use errors::{OrmError, OrmResult, IntoOrmResult};
+
+pub mod extras;
+pub use extras::WithExtras;
 
 pub mod logging;
 pub use logging::{Logger, LogLevel, LogEntry, QueryTimer};

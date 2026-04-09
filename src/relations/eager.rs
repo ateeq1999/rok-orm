@@ -124,11 +124,53 @@ impl<P> BelongsToEager<P> {
     }
 }
 
+/// Eager loader for has-many-through: generates an INNER JOIN query for a batch of parent IDs.
+///
+/// The query selects child rows joined through an intermediate table and filters by
+/// `through_table.first_key IN (parent_ids)`.
+#[derive(Debug, Clone)]
+pub struct HasManyThroughEager<P> {
+    pub through_table: &'static str,
+    pub through_pk: &'static str,
+    pub first_key: String,
+    pub second_key: String,
+    pub child_table: &'static str,
+    _phantom: PhantomData<P>,
+}
+
+impl<P> HasManyThroughEager<P> {
+    pub fn new(
+        through_table: &'static str,
+        through_pk: &'static str,
+        first_key: impl Into<String>,
+        second_key: impl Into<String>,
+        child_table: &'static str,
+    ) -> Self {
+        Self { through_table, through_pk, first_key: first_key.into(), second_key: second_key.into(), child_table, _phantom: PhantomData }
+    }
+
+    /// Build a batch query: JOIN through table, WHERE first_key IN (parent_ids).
+    pub fn build_query<C: Model>(&self, parent_ids: &[SqlValue]) -> QueryBuilder<C> {
+        if parent_ids.is_empty() {
+            return QueryBuilder::new(self.child_table).limit(0);
+        }
+        let on = format!("{}.{} = {}.{}", self.through_table, self.through_pk, self.child_table, self.second_key);
+        let fk = format!("{}.{}", self.through_table, self.first_key);
+        QueryBuilder::<C>::new(self.child_table)
+            .inner_join(self.through_table, &on)
+            .where_in(&fk, parent_ids.to_vec())
+    }
+
+    pub fn first_key(&self) -> &str { &self.first_key }
+    pub fn through_table(&self) -> &'static str { self.through_table }
+}
+
 #[derive(Debug, Clone)]
 pub enum EagerRelation<P> {
     HasMany(HasManyEager<P>),
     HasOne(HasOneEager<P>),
     BelongsTo(BelongsToEager<P>),
+    HasManyThrough(HasManyThroughEager<P>),
 }
 
 impl<P> EagerRelation<P> {
@@ -137,6 +179,7 @@ impl<P> EagerRelation<P> {
             EagerRelation::HasMany(_) => "has_many",
             EagerRelation::HasOne(_) => "has_one",
             EagerRelation::BelongsTo(_) => "belongs_to",
+            EagerRelation::HasManyThrough(_) => "has_many_through",
         }
     }
 
@@ -145,6 +188,7 @@ impl<P> EagerRelation<P> {
             EagerRelation::HasMany(e) => e.build_query::<C>(parent_ids),
             EagerRelation::HasOne(e) => e.build_query::<C>(parent_ids),
             EagerRelation::BelongsTo(e) => e.build_query::<C>(parent_ids),
+            EagerRelation::HasManyThrough(e) => e.build_query::<C>(parent_ids),
         }
     }
 }

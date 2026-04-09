@@ -8,6 +8,9 @@ pub mod many_to_many;
 pub mod pivot_row;
 pub(crate) mod lazy;
 pub mod belongs_to_many;
+pub mod morph;
+pub mod morph_map;
+pub mod registry;
 
 pub mod eager;
 
@@ -20,5 +23,7 @@ pub use many_to_many::ManyToMany;
 pub use has_many_through::HasManyThrough;
 pub use has_one_through::HasOneThrough;
 pub use pivot_row::PivotRow;
+pub use morph::{MorphOne, MorphMany, MorphToRef, MorphToMany, MorphedByMany};
+pub use registry::RelationMeta;
 
 pub use eager::{BelongsToEager, HasManyEager, HasOneEager};

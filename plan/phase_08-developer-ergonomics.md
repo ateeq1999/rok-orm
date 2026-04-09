@@ -170,11 +170,10 @@ while let Some(user) = stream.next().await {
 
 ### Tasks
 
-- [ ] Add `async fn chunk(pool, size, callback: async FnMut(Vec<T>) -> OrmResult<()>)` to `QueryBuilder`
-  - Loops with LIMIT `size` OFFSET `0, size, 2*size, …` until empty result
-- [ ] Add `async fn chunk_by_id(pool, size, callback)` — uses `WHERE id > last_max_id` cursor
+- [x] Add `async fn chunk(pool, builder, size, callback: FnMut(Vec<T>) -> Fut)` to `PgModelExt` — LIMIT/OFFSET loop
+- [x] Add `async fn chunk_by_id(pool, builder, size, get_id, callback)` — `WHERE pk > last_id` cursor, stable under deletes
 - [ ] Add `fn into_stream(pool) -> impl Stream<Item = OrmResult<T>>` using sqlx `fetch()` streaming
-- [ ] Tests: chunk processes all rows, chunk_by_id stable with deletes, stream yields all rows
+- [x] Tests: chunk/chunk_by_id SQL generation (LIMIT, OFFSET, WHERE gt pk) in integration.rs
 
 ---
 

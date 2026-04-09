@@ -47,6 +47,10 @@ where
         }
     }
 
+    pub fn pivot_table_name(&self) -> &str { &self.pivot_table }
+    pub fn left_key_name(&self) -> &str { &self.left_key }
+    pub fn right_key_name(&self) -> &str { &self.right_key }
+
     /// Include extra pivot columns in the SELECT.
     pub fn with_pivot(mut self, cols: &[&str]) -> Self {
         self.pivot_columns = cols.iter().map(|s| s.to_string()).collect();
@@ -162,6 +166,110 @@ where
             pk_offset + 1
         );
         (sql, params)
+    }
+}
+
+// ── Unit tests ───────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct User;
+    impl Model for User {
+        fn table_name() -> &'static str { "users" }
+        fn columns() -> &'static [&'static str] { &["id", "name"] }
+    }
+
+    struct Role;
+    impl Model for Role {
+        fn table_name() -> &'static str { "roles" }
+        fn columns() -> &'static [&'static str] { &["id", "name"] }
+    }
+
+    fn rel() -> ManyToMany<User, Role> {
+        ManyToMany::new("user_roles", "user_id", "role_id", "roles", "id")
+    }
+
+    #[test]
+    fn query_for_generates_inner_join() {
+        let (sql, params) = rel().query_for(SqlValue::Integer(1)).to_sql();
+        assert!(sql.contains("INNER JOIN user_roles"), "sql: {sql}");
+        assert!(sql.contains("user_roles.user_id = $1"), "sql: {sql}");
+        assert_eq!(params.len(), 1);
+        assert_eq!(params[0], SqlValue::Integer(1));
+    }
+
+    #[test]
+    fn attach_sql_inserts_pivot_row() {
+        let (sql, params) = rel().attach_sql(SqlValue::Integer(1), SqlValue::Integer(5));
+        assert!(sql.contains("INSERT INTO user_roles"), "sql: {sql}");
+        assert!(sql.contains("user_id"), "sql: {sql}");
+        assert!(sql.contains("role_id"), "sql: {sql}");
+        assert_eq!(params[0], SqlValue::Integer(1));
+        assert_eq!(params[1], SqlValue::Integer(5));
+    }
+
+    #[test]
+    fn attach_with_pivot_sql_includes_extra_cols() {
+        let (sql, params) = rel().attach_with_pivot_sql(
+            SqlValue::Integer(1),
+            SqlValue::Integer(5),
+            &[("assigned_at", SqlValue::Text("2026-01-01".into()))],
+        );
+        assert!(sql.contains("assigned_at"), "sql: {sql}");
+        assert_eq!(params.len(), 3);
+    }
+
+    #[test]
+    fn detach_sql_deletes_pivot_row() {
+        let (sql, params) = rel().detach_sql(SqlValue::Integer(1), SqlValue::Integer(5));
+        assert!(sql.starts_with("DELETE FROM user_roles"), "sql: {sql}");
+        assert!(sql.contains("user_id = $1"), "sql: {sql}");
+        assert!(sql.contains("role_id = $2"), "sql: {sql}");
+        assert_eq!(params[0], SqlValue::Integer(1));
+        assert_eq!(params[1], SqlValue::Integer(5));
+    }
+
+    #[test]
+    fn detach_all_sql_deletes_all_for_parent() {
+        let (sql, params) = rel().detach_all_sql(SqlValue::Integer(7));
+        assert!(sql.starts_with("DELETE FROM user_roles"), "sql: {sql}");
+        assert!(sql.contains("user_id = $1"), "sql: {sql}");
+        assert!(!sql.contains("role_id"), "sql: {sql}");
+        assert_eq!(params[0], SqlValue::Integer(7));
+    }
+
+    #[test]
+    fn current_ids_sql_selects_right_key() {
+        let (sql, params) = rel().current_ids_sql(SqlValue::Integer(3));
+        assert!(sql.contains("SELECT role_id FROM user_roles"), "sql: {sql}");
+        assert!(sql.contains("user_id = $1"), "sql: {sql}");
+        assert_eq!(params[0], SqlValue::Integer(3));
+    }
+
+    #[test]
+    fn update_pivot_sql_sets_cols() {
+        let (sql, params) = rel().update_pivot_sql(
+            SqlValue::Integer(1),
+            SqlValue::Integer(2),
+            &[("expires_at", SqlValue::Text("2027-01-01".into()))],
+        );
+        assert!(sql.starts_with("UPDATE user_roles SET"), "sql: {sql}");
+        assert!(sql.contains("expires_at = $1"), "sql: {sql}");
+        assert!(sql.contains("user_id = $2"), "sql: {sql}");
+        assert!(sql.contains("role_id = $3"), "sql: {sql}");
+        assert_eq!(params.len(), 3);
+    }
+
+    #[test]
+    fn with_pivot_includes_extra_cols_in_select() {
+        let (sql, _) = rel()
+            .with_pivot(&["assigned_at", "expires_at"])
+            .query_for(SqlValue::Integer(1))
+            .to_sql();
+        assert!(sql.contains("user_roles.assigned_at"), "sql: {sql}");
+        assert!(sql.contains("user_roles.expires_at"), "sql: {sql}");
     }
 }
 

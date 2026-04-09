@@ -880,3 +880,182 @@ fn to_fields_skips_skipped_fields() {
     let fields = tag.to_fields();
     assert!(!fields.iter().any(|(k, _)| *k == "cached_count"));
 }
+
+// ── 7.1 many_to_many named-params macro ──────────────────────────────────────
+
+#[derive(rok_orm::Model, rok_orm_macros::Relations)]
+pub struct UserWithRoles {
+    pub id: i64,
+    pub name: String,
+    #[model(many_to_many(
+        related = "Role",
+        pivot   = "user_roles",
+        fk      = "user_id",
+        rfk     = "role_id",
+        pivots  = ["assigned_at"],
+    ))]
+    pub roles: std::marker::PhantomData<Role>,
+}
+
+#[derive(rok_orm::Model)]
+pub struct Role {
+    pub id: i64,
+    pub name: String,
+}
+
+#[test]
+fn many_to_many_named_pivot_table() {
+    let rel = UserWithRoles { id: 1, name: "Alice".into(), roles: std::marker::PhantomData }.roles();
+    assert_eq!(rel.pivot_table_name(), "user_roles");
+    assert_eq!(rel.left_key_name(), "user_id");
+    assert_eq!(rel.right_key_name(), "role_id");
+}
+
+#[test]
+fn many_to_many_named_with_pivot_in_query() {
+    let rel = UserWithRoles { id: 1, name: "Alice".into(), roles: std::marker::PhantomData }.roles();
+    // pivots = ["assigned_at"] means with_pivot was called, SELECT includes pivot cols
+    let (sql, _) = rel.query_for(rok_orm::SqlValue::Integer(1)).to_sql();
+    assert!(sql.contains("user_roles.assigned_at") || sql.contains("assigned_at"), "sql: {sql}");
+}
+
+#[test]
+fn many_to_many_named_attach_sql() {
+    let rel = UserWithRoles { id: 1, name: "Alice".into(), roles: std::marker::PhantomData }.roles();
+    let (sql, params) = rel.attach_sql(rok_orm::SqlValue::Integer(1), rok_orm::SqlValue::Integer(3));
+    assert!(sql.contains("INSERT INTO user_roles"), "sql: {sql}");
+    assert_eq!(params.len(), 2);
+}
+
+#[test]
+fn many_to_many_named_sync_sql() {
+    let rel = UserWithRoles { id: 1, name: "Alice".into(), roles: std::marker::PhantomData }.roles();
+    let (sql, _) = rel.current_ids_sql(rok_orm::SqlValue::Integer(1));
+    assert!(sql.contains("SELECT role_id FROM user_roles"), "sql: {sql}");
+}
+
+// ── 7.3 HasOneThrough SQL generation ─────────────────────────────────────────
+
+#[derive(rok_orm::Model, rok_orm_macros::Relations)]
+#[model(table = "mechanics")]
+pub struct Mechanic {
+    pub id: i64,
+    pub name: String,
+    #[model(has_one_through(CarOwner, Car))]
+    pub car_owner: std::marker::PhantomData<CarOwner>,
+}
+
+#[derive(rok_orm::Model)]
+pub struct Car {
+    pub id: i64,
+    pub mechanic_id: i64,
+}
+
+#[derive(rok_orm::Model)]
+pub struct CarOwner {
+    pub id: i64,
+    pub car_id: i64,
+}
+
+#[test]
+fn has_one_through_macro_generates_join_query() {
+    let mech = Mechanic { id: 1, name: "Bob".into(), car_owner: std::marker::PhantomData };
+    let rel = mech.car_owner();
+    let (sql, params) = rel.query_for(rok_orm::SqlValue::Integer(1)).to_sql();
+    assert!(sql.contains("INNER JOIN cars ON cars.id = car_owners.car_id"), "sql: {sql}");
+    assert!(sql.contains("WHERE cars.mechanic_id = $1"), "sql: {sql}");
+    assert!(sql.contains("LIMIT 1"), "sql: {sql}");
+    assert_eq!(params.len(), 1);
+}
+
+#[test]
+fn has_one_through_absent_returns_none_query() {
+    let mech = Mechanic { id: 99, name: "Ghost".into(), car_owner: std::marker::PhantomData };
+    let rel = mech.car_owner();
+    let (sql, _) = rel.query_for(rok_orm::SqlValue::Integer(99)).to_sql();
+    assert!(sql.contains("FROM car_owners"), "sql: {sql}");
+}
+
+// ── 7.4 Polymorphic macro attrs ───────────────────────────────────────────────
+
+#[derive(rok_orm::Model, rok_orm_macros::Relations)]
+pub struct ImageableUser {
+    pub id: i64,
+    pub name: String,
+    #[model(morph_one(related = "Image2", morph_key = "imageable"))]
+    pub image: std::marker::PhantomData<Image2>,
+}
+
+#[derive(rok_orm::Model, rok_orm_macros::Relations)]
+pub struct ImageablePost {
+    pub id: i64,
+    pub title: String,
+    #[model(morph_many(related = "Image2", morph_key = "imageable"))]
+    pub images: std::marker::PhantomData<Image2>,
+}
+
+#[derive(rok_orm::Model)]
+pub struct Image2 {
+    pub id: i64,
+    pub imageable_type: String,
+    pub imageable_id: i64,
+    pub url: String,
+}
+
+#[test]
+fn morph_one_macro_generates_correct_query() {
+    let u = ImageableUser { id: 5, name: "Alice".into(), image: std::marker::PhantomData };
+    let rel = u.image();
+    let (sql, params) = rel.query_for(rok_orm::SqlValue::Integer(5)).to_sql();
+    assert!(sql.contains("FROM image2s"), "sql: {sql}");
+    assert!(sql.contains("imageable_type"), "sql: {sql}");
+    assert!(sql.contains("LIMIT 1"), "sql: {sql}");
+    assert_eq!(params[0], rok_orm::SqlValue::Text("imageable_users".into()));
+}
+
+#[test]
+fn morph_many_macro_generates_correct_query() {
+    let p = ImageablePost { id: 3, title: "Hello".into(), images: std::marker::PhantomData };
+    let rel = p.images();
+    let (sql, params) = rel.query_for(rok_orm::SqlValue::Integer(3)).to_sql();
+    assert!(sql.contains("FROM image2s"), "sql: {sql}");
+    assert!(!sql.contains("LIMIT"), "morph_many should not have LIMIT: {sql}");
+    assert_eq!(params[0], rok_orm::SqlValue::Text("imageable_posts".into()));
+}
+
+// ── 8.4 chunk SQL — verify LIMIT/OFFSET generation ───────────────────────────
+
+#[test]
+fn chunk_first_page_sql_uses_limit_and_zero_offset() {
+    let (sql, _) = User::query()
+        .filter("active", true)
+        .limit(500)
+        .offset(0)
+        .to_sql();
+    assert!(sql.contains("LIMIT 500"), "sql: {sql}");
+    assert!(sql.contains("OFFSET 0"), "sql: {sql}");
+}
+
+#[test]
+fn chunk_second_page_sql_advances_offset() {
+    let (sql, _) = User::query()
+        .filter("active", true)
+        .limit(500)
+        .offset(500)
+        .to_sql();
+    assert!(sql.contains("LIMIT 500"), "sql: {sql}");
+    assert!(sql.contains("OFFSET 500"), "sql: {sql}");
+}
+
+#[test]
+fn chunk_by_id_sql_uses_where_gt_on_pk() {
+    let (sql, params) = User::query()
+        .where_gt("id", rok_orm::SqlValue::Integer(100))
+        .order_by("id")
+        .limit(500)
+        .to_sql();
+    assert!(sql.contains("id > $1"), "sql: {sql}");
+    assert!(sql.contains("ORDER BY id ASC"), "sql: {sql}");
+    assert!(sql.contains("LIMIT 500"), "sql: {sql}");
+    assert_eq!(params[0], rok_orm::SqlValue::Integer(100));
+}

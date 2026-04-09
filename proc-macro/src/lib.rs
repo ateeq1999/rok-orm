@@ -13,6 +13,7 @@ use syn::{parse_macro_input, DeriveInput};
 
 mod expand_model;
 mod expand_relations;
+mod expand_relations_morph;
 mod query_macro;
 
 // ── derive(Model) ────────────────────────────────────────────────────────────
