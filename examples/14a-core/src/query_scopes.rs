@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: reusable query builders
 
-use rok_orm::{Model, query::QueryBuilder};
+use rok_orm::{Model, PgModel, query::QueryBuilder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
@@ -53,22 +53,24 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
         ("role", "user".into()),
     ]).await;
     
-    // Use scopes
+    // Use scopes - need to use get_where to execute
     println!("1. Using active() scope...");
-    let active = User::active().get(pool).await?;
+    let active = User::get_where(pool, User::active()).await?;
     println!("   Active users: {}", active.len());
     
     println!("2. Using role('admin') scope...");
-    let admins = User::role("admin").get(pool).await?;
+    let admins = User::get_where(pool, User::role("admin")).await?;
     println!("   Admin users: {}", admins.len());
     
     println!("3. Using recent(30) scope...");
-    let recent = User::recent(30).get(pool).await?;
+    let recent = User::get_where(pool, User::recent(30)).await?;
     println!("   Recent users: {}", recent.len());
     
-    // Chain scopes
+    // Chain scopes - combine multiple filters
     println!("4. Chaining scopes (active + role='user')...");
-    let active_users = User::active().role("user").get(pool).await?;
+    // Note: chaining works because each scope returns QueryBuilder
+    let chained = User::active().role("user");
+    let active_users = User::get_where(pool, chained).await?;
     println!("   Active users with role 'user': {}", active_users.len());
     
     println!("\n✅ Query scopes work correctly");

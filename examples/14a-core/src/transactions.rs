@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: Tx::begin, commit, rollback
 
-use rok_orm::Model;
+use rok_orm::{Model, PgModel};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
@@ -50,14 +50,14 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     println!("   (Transaction would rollback if something failed)");
     println!("   Example pattern:");
     println!("     let mut tx = Tx::begin(pool).await?;");
-    println!("     if condition { tx.rollback().await?; }");
-    println!("     else { tx.commit().await?; }");
+    println!("     if condition {{ tx.rollback().await?; }}");
+    println!("     else {{ tx.commit().await?; }}");
     
     // Check data
-    let users = User::query()
-        .filter("email", "tx@example.com")
-        .get(pool)
-        .await?;
+    let users = User::get_where(
+        pool,
+        User::query().filter("email", "tx@example.com"),
+    ).await?;
     println!("   User created in transaction: {}", users.len() > 0);
     
     println!("\n✅ Transactions work correctly");

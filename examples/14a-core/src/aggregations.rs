@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: count, sum, avg, min, max
 
-use rok_orm::Model;
+use rok_orm::{Model, PgModel, PgModelExt};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
@@ -50,7 +50,7 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     let total: i64 = User::count(pool).await?;
     println!("   Total users: {}", total);
     
-    let active_count = User::query().filter("active", true).count(pool).await?;
+    let active_count = User::count_where(pool, User::query().filter("active", true)).await?;
     println!("   Active users: {}", active_count);
     
     // Sum
@@ -73,8 +73,8 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     println!("   Youngest user age: {:?}", oldest);
     println!("   Oldest user age: {:?}", youngest);
     
-    // With query builder
-    println!("7. Query builder aggregations...");
+    // With query builder - get SQL for aggregation (not executed here)
+    println!("7. Query builder aggregations (SQL generation)...");
     let (sql, _) = User::query()
         .filter("active", true)
         .sum_sql("age");

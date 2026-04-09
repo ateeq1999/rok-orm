@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: soft_delete, with_trashed, only_trashed, restore, force_delete
 
-use rok_orm::Model;
+use rok_orm::{Model, PgModel, PgModelExt};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
@@ -37,14 +37,14 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     let active = Post::all(pool).await?;
     println!("   Active posts: {}", active.len());
     
-    // Include trashed
+    // Include trashed - use builder method then fetch
     println!("4. with_trashed() - includes deleted...");
-    let all = Post::with_soft_delete().get(pool).await?;
+    let all = Post::get_where(pool, Post::query().with_trashed()).await?;
     println!("   Total posts (with trashed): {}", all.len());
     
     // Only trashed
     println!("5. only_trashed() - only deleted...");
-    let trashed = Post::only_trashed().get(pool).await?;
+    let trashed = Post::get_where(pool, Post::query().only_trashed()).await?;
     println!("   Trashed posts: {}", trashed.len());
     
     // Restore

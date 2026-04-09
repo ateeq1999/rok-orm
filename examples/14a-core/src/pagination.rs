@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: Page<T>, paginate()
 
-use rok_orm::{Model, pagination::Page};
+use rok_orm::{Model, PgModel, PgModelExt, pagination::Page};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
@@ -26,7 +26,7 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     }
     println!("1. Created 15 posts");
     
-    // Paginate
+    // Paginate - simple (all rows)
     println!("2. Paginate (page 1, per_page 5)...");
     let page: Page<Post> = Post::paginate(pool, 1, 5).await?;
     
@@ -42,12 +42,14 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     let page2 = Post::paginate(pool, 2, 5).await?;
     println!("   Items on page 2: {}", page2.data.len());
     
-    // Custom query pagination
+    // Custom query pagination - use paginate_where
     println!("4. Custom query with pagination...");
-    let custom_page = Post::query()
-        .order_by_desc("id")
-        .paginate(pool, 1, 10)
-        .await?;
+    let custom_page = Post::paginate_where(
+        pool,
+        Post::query().order_by_desc("id"),
+        1,  // page
+        10, // per_page
+    ).await?;
     
     println!("   Custom query page: {}/{}", custom_page.current_page, custom_page.last_page);
     

@@ -1,11 +1,11 @@
 //! Example 3: Basic Relationships
 //! 
-//! Demonstrates: has_many, belongs_to, with() eager loading
+//! Demonstrates: has_many, belongs_to relationships
 
-use rok_orm::{Model, relations::{HasMany, BelongsTo}};
+use rok_orm::{Model, PgModel, PgModelExt, Relations};
 use serde::{Deserialize, Serialize};
 
-#[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
+#[derive(Model, Relations, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
 #[model(table = "users")]
 pub struct User {
     #[model(primary_key)]
@@ -13,9 +13,11 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub active: bool,
+    #[model(has_many = Post)]
+    _posts: (),
 }
 
-#[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
+#[derive(Model, Relations, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
 #[model(table = "posts")]
 pub struct Post {
     #[model(primary_key)]
@@ -23,18 +25,8 @@ pub struct Post {
     pub title: String,
     pub user_id: i64,
     pub published: bool,
-}
-
-#[derive(rok_orm::Relations)]
-pub struct UserRelations {
-    #[has_many(target = "Post")]
-    pub posts: HasMany<User, Post>,
-}
-
-#[derive(rok_orm::Relations)]
-pub struct PostRelations {
-    #[belongs_to(target = "User")]
-    pub user: BelongsTo<Post, User>,
+    #[model(belongs_to = User)]
+    _user: (),
 }
 
 pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
@@ -57,26 +49,34 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     }
     println!("1. Created user with 3 posts");
     
-    // Eager loading - prevents N+1
-    println!("2. Eager loading with with()...");
-    let users = User::query()
-        .with("posts")
-        .limit(5)
-        .get(pool)
-        .await?;
+    // Query users and manually load their posts (eager loading pattern)
+    println!("2. Fetch users with posts (manual eager load)...");
+    let users = User::all(pool).await?;
     
     for u in &users {
-        println!("   📝 {} has {} posts", u.name, u.posts.len());
+        // Manually fetch related posts
+        let posts = Post::get_where(
+            pool,
+            Post::query().filter("user_id", u.id),
+        ).await?;
+        println!("   📝 {} has {} posts", u.name, posts.len());
     }
     
-    // Lazy loading demonstration
-    println!("3. Lazy loading (access relation on-demand)...");
-    let posts = Post::query().limit(3).get(pool).await?;
+    // Query posts with user info
+    println!("3. Fetch posts with user info...");
+    let posts = Post::all(pool).await?;
     for post in &posts {
-        // This would trigger a query if accessed
-        println!("   - Post: {} (user_id: {})", post.title, post.user_id);
+        // Get the user for this post
+        let users = User::get_where(
+            pool,
+            User::query().filter("id", post.user_id),
+        ).await?;
+        if let Some(user) = users.first() {
+            println!("   - Post: {} by {}", post.title, user.name);
+        }
     }
     
     println!("\n✅ Relationships work correctly");
+    println!("   Note: Use user.posts() after adding fluent methods");
     Ok(())
 }

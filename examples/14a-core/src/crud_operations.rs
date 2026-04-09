@@ -36,18 +36,21 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     ]).await?;
     println!("   ✅ Created with ID: {} (Bob)", bob.id);
     
-    // READ - find by pk
+    // READ - find by pk (returns Option<T>)
     println!("3. Find by primary key...");
-    let user = User::find_by_pk(pool, bob.id).await?;
+    let user = User::find_by_pk(pool, bob.id).await?
+        .expect("User should exist");
     println!("   ✅ Found: {} (id={})", user.name, user.id);
     
-    // READ - first
+    // READ - first row (no filter)
     println!("4. Find first...");
-    let first = User::query()
-        .filter("email", "alice@example.com")
-        .first(pool)
-        .await?;
+    let first = User::first(pool).await?
+        .expect("Should have at least one user");
     println!("   ✅ Found first: {}", first.name);
+    
+    // Alternative: filter and get (returns Vec)
+    let filtered = User::get_where(pool, User::query().filter("email", "alice@example.com")).await?;
+    println!("   Filtered users: {}", filtered.len());
     
     // UPDATE
     println!("5. Update user...");
@@ -61,7 +64,7 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     User::upsert(pool, &[
         ("email", "admin@example.com".into()),
         ("name", "Admin".into()),
-    ]).await?;
+    ], "email", &["name"]).await?;
     
     User::upsert(pool, &[
         ("email", "admin@example.com".into()),

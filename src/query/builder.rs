@@ -158,19 +158,22 @@ impl<T> QueryBuilder<T> {
 
     /// Add an `INNER JOIN table ON condition`.
     pub fn inner_join(mut self, table: &str, on: &str) -> Self {
-        self.joins.push(Join::Inner(table.to_string(), on.to_string()));
+        self.joins
+            .push(Join::Inner(table.to_string(), on.to_string()));
         self
     }
 
     /// Add a `LEFT JOIN table ON condition`.
     pub fn left_join(mut self, table: &str, on: &str) -> Self {
-        self.joins.push(Join::Left(table.to_string(), on.to_string()));
+        self.joins
+            .push(Join::Left(table.to_string(), on.to_string()));
         self
     }
 
     /// Add a `RIGHT JOIN table ON condition`.
     pub fn right_join(mut self, table: &str, on: &str) -> Self {
-        self.joins.push(Join::Right(table.to_string(), on.to_string()));
+        self.joins
+            .push(Join::Right(table.to_string(), on.to_string()));
         self
     }
 
@@ -238,5 +241,60 @@ impl<T> QueryBuilder<T> {
     pub fn without_global_scope<S: 'static>(mut self) -> Self {
         self.excluded_scope_ids.push(std::any::TypeId::of::<S>());
         self
+    }
+
+    // ── fluent executor methods ────────────────────────────────────────────────
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "postgres")] {
+            use sqlx::postgres::PgRow;
+
+            /// Execute the query and return all matching rows.
+            pub async fn get(self, pool: &PgPool) -> Result<Vec<T>, sqlx::Error>
+            where
+                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+            {
+                crate::executor::postgres::fetch_all(pool, self).await
+            }
+
+            /// Execute the query and return the first matching row, if any.
+            pub async fn first(self, pool: &PgPool) -> Result<Option<T>, sqlx::Error>
+            where
+                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+            {
+                crate::executor::postgres::fetch_optional(pool, self).await
+            }
+
+            /// Execute the query and return the count of matching rows.
+            pub async fn count(self, pool: &PgPool) -> Result<i64, sqlx::Error>
+            where
+                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+            {
+                crate::executor::postgres::count(pool, self).await
+            }
+
+            /// Execute the query and return all matching rows as a Vec of optional rows.
+            pub async fn get_optional(self, pool: &PgPool) -> Result<Vec<T>, sqlx::Error>
+            where
+                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+            {
+                crate::executor::postgres::fetch_all(pool, self).await
+            }
+
+            /// Paginate the query and return a paginated result.
+            pub async fn paginate(
+                self,
+                pool: &PgPool,
+                page: i64,
+                per_page: i64,
+            ) -> Result<crate::pagination::Page<T>, sqlx::Error>
+            where
+                T: crate::Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin,
+            {
+                let total = crate::executor::postgres::count(pool, self.clone()).await?;
+                let data = crate::executor::postgres::fetch_all(pool, self.paginate(page, per_page)).await?;
+                Ok(crate::pagination::Page::new(data, total, per_page, page))
+            }
+        }
     }
 }

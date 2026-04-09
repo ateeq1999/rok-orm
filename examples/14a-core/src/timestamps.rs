@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: timestamps attribute, created_at, updated_at
 
-use rok_orm::Model;
+use rok_orm::{Model, PgModel, PgModelExt};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
@@ -41,9 +41,11 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     ]).await?;
     
     // Fetch and check
-    let updated = Article::find_by_pk(pool, id).await?;
-    println!("   ✅ updated_at changed to: {}", 
-        updated.updated_at.unwrap().format("%Y-%m-%d %H:%M:%S"));
+    let updated = Article::find_by_pk(pool, id).await?
+        .expect("Article should exist");
+    if let Some(ts) = updated.updated_at {
+        println!("   ✅ updated_at changed to: {}", ts.format("%Y-%m-%d %H:%M:%S"));
+    }
     
     println!("\n✅ Auto timestamps work correctly");
     Ok(())
