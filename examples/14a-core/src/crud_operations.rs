@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: create, create_returning, find_by_pk, find_or_404, update_by_pk, delete_by_pk, upsert
 
-use rok_orm::Model;
+use rok_orm::{Model, PgModel, PgModelExt};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]
