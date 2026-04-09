@@ -164,7 +164,7 @@ pub trait PgModelExt: PgModel {
         let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
         for row in data {
             if !insert_data.iter().any(|(c, _)| c == &row.0) {
-                insert_data.push(*row);
+                insert_data.push(row.clone());
             }
         }
         postgres::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
@@ -196,7 +196,7 @@ pub trait PgModelExt: PgModel {
         let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
         for row in data {
             if !insert_data.iter().any(|(c, _)| c == &row.0) {
-                insert_data.push(*row);
+                insert_data.push(row.clone());
             }
         }
         postgres::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
@@ -282,7 +282,7 @@ pub trait PgModelExt: PgModel {
             if batch.is_empty() {
                 break;
             }
-            last_id = batch.last().map(|r| get_id(r));
+            last_id = batch.last().map(&get_id);
             let is_last = batch.len() < chunk_size;
             callback(batch).await?;
             if is_last {
@@ -290,6 +290,53 @@ pub trait PgModelExt: PgModel {
             }
         }
         Ok(())
+    }
+
+    /// Fetch rows including extra aggregate columns (e.g. from `with_count_col`).
+    ///
+    /// `extra_cols` must match the aliases used in `with_count_col` / `with_sum_col` etc.
+    /// Extra values are accessible via [`WithExtras::extra_i64`], [`WithExtras::extra_f64`], etc.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let posts = Post::get_with_extras(
+    ///     &pool,
+    ///     Post::query().with_count_col("comments", "post_id", "id", "comments_count"),
+    ///     &["comments_count"],
+    /// ).await?;
+    /// assert_eq!(posts[0].extra_i64("comments_count"), Some(3));
+    /// ```
+    async fn get_with_extras(
+        pool: &PgPool,
+        builder: QueryBuilder<Self>,
+        extra_cols: &[&str],
+    ) -> Result<Vec<crate::extras::WithExtras<Self>>, sqlx::Error>
+    where Self: Sized,
+    {
+        postgres::fetch_with_extras(pool, builder, extra_cols).await
+    }
+
+    /// Stream rows one-by-one from the database — avoids loading all rows into memory.
+    ///
+    /// Backed by sqlx's `fetch()` cursor.  Use when the result set may be too large for
+    /// `fetch_all`.  Requires `StreamExt::next` from a futures library to consume items.
+    ///
+    /// ```rust,ignore
+    /// use futures::StreamExt;
+    /// let mut s = User::into_stream(&pool, User::query().where_eq("active", true));
+    /// while let Some(row) = s.next().await {
+    ///     let user = row?;
+    ///     process(user).await;
+    /// }
+    /// ```
+    fn into_stream<'a>(
+        pool: &'a PgPool,
+        builder: QueryBuilder<Self>,
+    ) -> std::pin::Pin<Box<dyn futures_core::Stream<Item = Result<Self, sqlx::Error>> + Send + 'a>>
+    where Self: Sized + 'static,
+    {
+        postgres::fetch_stream(pool, builder)
     }
 
     /// Cursor-based pagination. Fetches `limit + 1` rows to detect `has_more`.

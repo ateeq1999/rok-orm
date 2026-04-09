@@ -111,7 +111,10 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
                 d.push((col, SqlValue::Text(Utc::now().to_rfc3339())));
             }
         }
-        postgres::update::<Self>(pool, Self::find(id), &d).await
+        let id_val: SqlValue = id.into();
+        let affected = postgres::update::<Self>(pool, Self::find(id_val.clone()), &d).await?;
+        touch_parents_by_pk::<Self>(pool, id_val).await?;
+        Ok(affected)
     }
 
     fn delete_by_pk(
@@ -177,6 +180,8 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
             ObserverRegistry::dispatch::<Self>(&row, ObserverEvent::Created);
             ObserverRegistry::dispatch::<Self>(&row, ObserverEvent::Saved);
         }
+        // Touch parent updated_at for all declared touches relations.
+        touch_parents_from_row(pool, &row).await?;
         Ok(row)
     }
 
@@ -292,3 +297,65 @@ pub trait PgModel: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {
 }
 
 impl<T> PgModel for T where T: Model + for<'r> sqlx::FromRow<'r, PgRow> + Send + Unpin {}
+
+// ── touches helpers ───────────────────────────────────────────────────────────
+
+/// Touch parent `updated_at` for all relations declared in `M::touches()`,
+/// using FK values extracted from an already-fetched row via `to_fields()`.
+async fn touch_parents_from_row<M: Model>(
+    pool: &PgPool,
+    row: &M,
+) -> Result<(), sqlx::Error> {
+    let touches = M::touches();
+    if touches.is_empty() {
+        return Ok(());
+    }
+    let fields = row.to_fields();
+    let now = Utc::now().to_rfc3339();
+    for rel_name in touches {
+        let fk_col = format!("{rel_name}_id");
+        let parent_table = format!("{rel_name}s");
+        if let Some((_, fk_val)) = fields.iter().find(|(col, _)| *col == fk_col) {
+            let sql = format!(
+                "UPDATE {parent_table} SET updated_at = $1 WHERE id = $2"
+            );
+            postgres::execute_raw(
+                pool,
+                &sql,
+                vec![SqlValue::Text(now.clone()), fk_val.clone()],
+            )
+            .await?;
+        }
+    }
+    Ok(())
+}
+
+/// Touch parent `updated_at` for all relations declared in `M::touches()`,
+/// using a subquery to fetch the FK value from the child row by PK.
+async fn touch_parents_by_pk<M: Model>(
+    pool: &PgPool,
+    child_pk_val: SqlValue,
+) -> Result<(), sqlx::Error> {
+    let touches = M::touches();
+    if touches.is_empty() {
+        return Ok(());
+    }
+    let self_table = M::table_name();
+    let self_pk = M::primary_key();
+    let now = Utc::now().to_rfc3339();
+    for rel_name in touches {
+        let fk_col = format!("{rel_name}_id");
+        let parent_table = format!("{rel_name}s");
+        let sql = format!(
+            "UPDATE {parent_table} SET updated_at = $1 \
+             WHERE id = (SELECT {fk_col} FROM {self_table} WHERE {self_pk} = $2)"
+        );
+        postgres::execute_raw(
+            pool,
+            &sql,
+            vec![SqlValue::Text(now.clone()), child_pk_val.clone()],
+        )
+        .await?;
+    }
+    Ok(())
+}

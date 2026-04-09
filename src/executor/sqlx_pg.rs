@@ -26,7 +26,6 @@ use sqlx::{query::Query, query::QueryAs, Postgres};
 #[cfg(feature = "postgres")]
 use crate::query::SqlValue;
 
-#[cfg(feature = "postgres")]
 // ── low-level binders ─────────────────────────────────────────────────────────
 
 #[cfg(feature = "postgres")]
@@ -62,7 +61,6 @@ where
     }
 }
 
-#[cfg(feature = "postgres")]
 // ── convenience builders ────────────────────────────────────────────────────────
 
 #[cfg(feature = "postgres")]
@@ -84,7 +82,6 @@ where
         .fold(sqlx::query_as::<_, T>(sql), |q, v| bind_value_as(q, v))
 }
 
-#[cfg(feature = "postgres")]
 // ── high-level executors ─────────────────────────────────────────────────────
 
 #[cfg(feature = "postgres")]

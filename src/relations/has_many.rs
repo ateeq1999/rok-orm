@@ -123,7 +123,7 @@ where
         parent_id: SqlValue,
         data: &[(&str, SqlValue)],
     ) -> Result<C, sqlx::Error>
-    where C: for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Unpin,
+    where C: for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
     {
         let mut full: Vec<(&str, SqlValue)> = vec![(&self.foreign_key, parent_id)];
         full.extend_from_slice(data);

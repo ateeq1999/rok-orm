@@ -377,7 +377,7 @@ WHERE (SELECT COUNT(*) FROM comments WHERE comments.post_id = posts.id) > 5
 - [x] Add `where_doesnt_have(rel, closure?)` → `WHERE NOT EXISTS (...)`
 - [x] Add `where_has_raw` / `where_doesnt_have_raw` for raw subquery strings
 - [x] Add `where_has_count(rel, n, CountOp)` → subquery with count comparison
-- [ ] Integrate with relation registry (each model exposes its relation sub-query builders via macro)
+- [x] Integrate with relation registry (each model exposes its relation sub-query builders via macro)
 - [x] Tests: each variant, with and without closure (unit tests in subquery.rs)
 
 ---
@@ -416,11 +416,11 @@ FROM posts
 
 ### Tasks
 
-- [ ] Add `extras: HashMap<String, SqlValue>` field to model row results (or use `serde_json::Value`)
+- [x] Add `extras: HashMap<String, SqlValue>` field to model row results (via `WithExtras<M>`)
 - [x] Add `with_count_col(child, fk, pk, alias)` to QueryBuilder — correlated COUNT subquery
 - [x] Add `with_sum_col`, `with_avg_col`, `with_min_col`, `with_max_col` — aggregate subqueries
 - [x] Generate subquery SQL injected into SELECT list as named column
-- [ ] Map result column into the `extras` map after fetch
+- [x] Map result column into the `extras` map after fetch (via `fetch_with_extras` + `get_with_extras`)
 - [x] Tests: with_count, with_sum, multiple aggregates combined
 
 ---
@@ -454,7 +454,7 @@ let user = User::update_or_create(&pool,
 - [x] Add `first_or_create(pool, search, defaults)` to PgModel / SqliteModel / MyModel
 - [x] Add `first_or_new(search, defaults) -> Self` (sync, no pool)
 - [x] Add `update_or_create(pool, search, values)` — UPDATE if found, INSERT if not
-- [ ] Tests: create path, find path, update path
+- [x] Tests: create path, find path, update path
 
 ---
 
@@ -475,7 +475,7 @@ assert!(a.is(&b));
 
 ### Tasks
 
-- [ ] Add `replicate(&self) -> Self` to `Model` trait (clone + reset PK field to Default)
+- [x] Add `replicate(&self) -> Self` to `Model` trait (clone + reset PK field to Default)
 - [x] Add `to_fields(&self) -> Vec<(&'static str, SqlValue)>` — serialize all non-PK columns
 - [x] Add `is(&self, other: &Self) -> bool` — value equality (requires `Self: PartialEq`)
 - [x] Tests: to_fields with rename, skip, default PK exclusion
@@ -517,9 +517,9 @@ fn generate_token() -> String { /* user-defined */ }
 - [x] Add `Model::new_unique_id() -> Option<SqlValue>` — default `None` (auto-increment)
 - [x] Macro generates override using `uuid::Uuid::new_v4()` behind `uuid-pk` feature flag
 - [x] Inject generated ID into INSERT data before executor runs (PgModel create/create_returning)
-- [ ] Add `custom_id = "fn_name"` — calls user-defined function for ID generation
+- [x] Add `custom_id = "fn_name"` — calls user-defined function for ID generation
 - [x] Add `uuid` to `Cargo.toml` optional dependencies (feature: `uuid-pk`)
-- [ ] Tests: create with UUID PK, find by UUID PK
+- [x] Tests: create with UUID PK, find by UUID PK
 
 ---
 
@@ -645,9 +645,9 @@ user.save_quietly(&pool, &[("name", "Quiet Update".into())]).await?;
 
 ## Acceptance Criteria for Phase 7
 
-- [ ] All 14 sub-sections fully implemented
-- [ ] Zero regressions in existing 98 tests
-- [ ] All new features tested on PostgreSQL AND SQLite (minimum)
-- [ ] All new `#[model(...)]` attributes documented in proc-macro doc comments
-- [ ] `cargo clippy -- -D warnings` clean
-- [ ] Phase file tasks all checked off
+- [x] All 14 sub-sections fully implemented
+- [x] Zero regressions in existing 98 tests (now 217 tests, 0 failures)
+- [x] All new features tested on PostgreSQL AND SQLite (minimum)
+- [x] All new `#[model(...)]` attributes documented in proc-macro doc comments
+- [x] `cargo clippy -- -D warnings` clean
+- [x] Phase file tasks all checked off

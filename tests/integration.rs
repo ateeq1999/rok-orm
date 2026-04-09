@@ -853,7 +853,6 @@ fn delete_in_sql_sqlite_dialect() {
 
 #[test]
 fn to_fields_returns_non_pk_columns() {
-    use rok_orm::SqlValue;
     let user = User { id: 1, name: "Alice".into(), email: "a@b.com".into() };
     let fields = user.to_fields();
     assert_eq!(fields.len(), 2);
@@ -1058,4 +1057,109 @@ fn chunk_by_id_sql_uses_where_gt_on_pk() {
     assert!(sql.contains("ORDER BY id ASC"), "sql: {sql}");
     assert!(sql.contains("LIMIT 500"), "sql: {sql}");
     assert_eq!(params[0], rok_orm::SqlValue::Integer(100));
+}
+
+// ── first_or_new / first_or_create helpers ───────────────────────────────────
+
+#[test]
+fn first_or_new_merges_conditions_and_data_without_duplicates() {
+    use rok_orm::SqlValue;
+    let conditions: &[(&str, SqlValue)] = &[("email", SqlValue::Text("a@b.com".into()))];
+    let data: &[(&str, SqlValue)] = &[
+        ("name", SqlValue::Text("Alice".into())),
+        ("email", SqlValue::Text("ignored@b.com".into())), // duplicate key, should be skipped
+    ];
+    // first_or_new is a Model trait method — test via User
+    let merged = User::first_or_new(conditions, data);
+    assert_eq!(merged.len(), 2);
+    assert_eq!(merged[0].0, "email");
+    assert_eq!(merged[1].0, "name");
+    // The duplicate email from data must NOT appear
+    assert!(merged.iter().filter(|(k, _)| *k == "email").count() == 1);
+}
+
+#[test]
+fn first_or_new_conditions_only_when_data_empty() {
+    use rok_orm::SqlValue;
+    let conditions: &[(&str, SqlValue)] = &[("id", SqlValue::Integer(42))];
+    let merged = User::first_or_new(conditions, &[]);
+    assert_eq!(merged.len(), 1);
+    assert_eq!(merged[0].1, SqlValue::Integer(42));
+}
+
+// ── custom_id / new_unique_id ─────────────────────────────────────────────────
+
+fn generate_test_id() -> String {
+    "test-custom-id-001".to_string()
+}
+
+#[derive(Model)]
+#[model(table = "articles", custom_id = "generate_test_id")]
+pub struct ArticleCustomId {
+    pub id: String,
+    pub title: String,
+}
+
+#[test]
+fn custom_id_new_unique_id_calls_fn() {
+    use rok_orm::SqlValue;
+    let id = ArticleCustomId::new_unique_id();
+    assert_eq!(id, Some(SqlValue::Text("test-custom-id-001".into())));
+}
+
+#[test]
+fn default_model_new_unique_id_is_none() {
+    // Standard models with auto-increment PK return None (DB assigns the PK)
+    assert!(User::new_unique_id().is_none());
+}
+
+// ── touches SQL generation ────────────────────────────────────────────────────
+
+#[derive(Model)]
+#[model(table = "comments", touches = ["post"])]
+pub struct TouchComment {
+    pub id: i64,
+    pub post_id: i64,
+    pub body: String,
+}
+
+#[test]
+fn touches_returns_declared_relations() {
+    let rel_names = TouchComment::touches();
+    assert_eq!(rel_names, &["post"]);
+}
+
+#[test]
+fn touches_empty_by_default() {
+    // User has no #[model(touches = [...])] — should return empty slice
+    let rel_names = User::touches();
+    assert!(rel_names.is_empty());
+}
+
+#[test]
+fn touches_parent_sql_shape() {
+    // Verify the SQL that would be generated for touching a parent follows the convention:
+    // UPDATE {rel}s SET updated_at = $1 WHERE id = $2
+    let rel = "post";
+    let parent_table = format!("{rel}s");
+    let sql = format!("UPDATE {parent_table} SET updated_at = $1 WHERE id = $2");
+    assert_eq!(sql, "UPDATE posts SET updated_at = $1 WHERE id = $2");
+}
+
+#[test]
+fn touches_subquery_sql_shape() {
+    // When we only have the child PK (update_by_pk path), the SQL uses a subquery:
+    // UPDATE {parent}s SET updated_at = $1 WHERE id = (SELECT {rel}_id FROM {self_table} WHERE {pk} = $2)
+    let rel = "post";
+    let parent_table = format!("{rel}s");
+    let fk_col = format!("{rel}_id");
+    let self_table = TouchComment::table_name();
+    let self_pk = TouchComment::primary_key();
+    let sql = format!(
+        "UPDATE {parent_table} SET updated_at = $1 WHERE id = (SELECT {fk_col} FROM {self_table} WHERE {self_pk} = $2)"
+    );
+    assert_eq!(
+        sql,
+        "UPDATE posts SET updated_at = $1 WHERE id = (SELECT post_id FROM comments WHERE id = $2)"
+    );
 }

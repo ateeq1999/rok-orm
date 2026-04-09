@@ -172,7 +172,7 @@ while let Some(user) = stream.next().await {
 
 - [x] Add `async fn chunk(pool, builder, size, callback: FnMut(Vec<T>) -> Fut)` to `PgModelExt` — LIMIT/OFFSET loop
 - [x] Add `async fn chunk_by_id(pool, builder, size, get_id, callback)` — `WHERE pk > last_id` cursor, stable under deletes
-- [ ] Add `fn into_stream(pool) -> impl Stream<Item = OrmResult<T>>` using sqlx `fetch()` streaming
+- [x] Add `fn into_stream(pool) -> impl Stream<Item = OrmResult<T>>` using sqlx `fetch()` streaming
 - [x] Tests: chunk/chunk_by_id SQL generation (LIMIT, OFFSET, WHERE gt pk) in integration.rs
 
 ---
@@ -380,16 +380,16 @@ Comment::update_by_pk(&pool, comment_id, &[("body", "edited".into())]).await?;
 
 - [x] Add `touches() -> &'static [&'static str]` to `Model` trait (default: empty slice)
 - [x] Macro generates override from `#[model(touches = [...])]`
-- [ ] Each string in `touches` is a relation name — resolve its FK column and parent table
-- [ ] After each create/update/delete, run: `UPDATE {parent_table} SET updated_at = NOW() WHERE {pk} = {fk_value}`
-- [ ] Tests: touches updates parent, multiple parents, no-op when touches is empty
+- [x] Each string in `touches` is a relation name — resolve its FK column and parent table
+- [x] After each create/update/delete, run: `UPDATE {parent_table} SET updated_at = NOW() WHERE {pk} = {fk_value}`
+- [x] Tests: touches updates parent, multiple parents, no-op when touches is empty
 
 ---
 
 ## Acceptance Criteria for Phase 8
 
-- [ ] All 9 sub-sections fully implemented
-- [ ] Zero regressions in existing tests
-- [ ] All features tested on PG + SQLite (minimum)
+- [x] All 9 sub-sections fully implemented
+- [x] Zero regressions in existing tests
+- [x] All features tested on PG + SQLite (minimum)
 - [x] `cargo clippy -- -D warnings` clean
-- [ ] Phase file tasks all checked off
+- [x] Phase file tasks all checked off

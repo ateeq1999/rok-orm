@@ -70,11 +70,14 @@ pub fn derive_relations(input: DeriveInput) -> syn::Result<TokenStream> {
                     let value = meta.value()?;
                     let target: syn::Type = value.parse()?;
                     let foreign_key = format!("{}_id", struct_name.to_string().to_snake_case());
+                    let target_table = format!("{}s", get_type_name(&target).to_snake_case());
+                    // Register in RelationMeta so where_has_named("profile") works
+                    meta_entries.push((field_ident.to_string(), target_table, foreign_key.clone()));
                     relations_impls.push(quote! {
                         fn #field_ident(&self) -> ::rok_orm::relations::HasOne<Self, #target> {
                             ::rok_orm::relations::HasOne::new(
                                 Self::table_name(), Self::primary_key(),
-                                #target::table_name(), #foreign_key,
+                                #target::table_name(), #foreign_key.to_string(),
                             )
                         }
                     });

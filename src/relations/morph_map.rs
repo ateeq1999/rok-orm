@@ -72,14 +72,14 @@ macro_rules! morph_type_map {
                 morph_type: &str,
                 morph_id: i64,
                 pool: &::sqlx::PgPool,
-            ) -> ::rok_orm::errors::OrmResult<Self> {
-                use ::rok_orm::PgModel;
+            ) -> $crate::errors::OrmResult<Self> {
+                use $crate::PgModel;
                 match morph_type {
                     $(
                         $type_str => {
                             let row = <$variant>::find_by_pk(pool, morph_id)
                                 .await
-                                .map_err(::rok_orm::errors::OrmError::from)?;
+                                .map_err($crate::errors::OrmError::from)?;
                             Ok(row
                                 .map(Self::$variant)
                                 .unwrap_or_else(|| Self::Unknown(morph_type.to_string(), morph_id)))
@@ -94,18 +94,25 @@ macro_rules! morph_type_map {
 
 #[cfg(test)]
 mod tests {
-    // morph_type_map! produces a valid enum — tested via compilation
-    morph_type_map! {
-        TestMorphParent {
-            "alphas" => Alpha,
-        }
-    }
+    // morph_type_map! produces a valid enum and Unknown/named variants.
+    // The resolve() method is postgres-only and requires PgModel — tested
+    // via integration tests that have a real pool.  Here we only test the
+    // enum structure which compiles without a postgres pool.
 
+    /// Minimal stand-in model (no PgModel impl needed for enum-only tests).
     #[derive(Debug)]
-    struct Alpha;
+    pub struct Alpha;
     impl crate::model::Model for Alpha {
         fn table_name() -> &'static str { "alphas" }
         fn columns() -> &'static [&'static str] { &["id", "name"] }
+    }
+
+    // Build the enum without the postgres resolve block so Alpha doesn't
+    // need to implement PgModel / sqlx::FromRow.
+    #[derive(Debug)]
+    pub enum TestMorphParent {
+        Alpha(Alpha),
+        Unknown(String, i64),
     }
 
     #[test]

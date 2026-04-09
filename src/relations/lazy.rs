@@ -1,6 +1,7 @@
 //! Lazy-loading helpers that execute relation queries against the database.
 
 #[cfg(feature = "postgres")]
+#[allow(dead_code)]
 pub mod pg {
     use sqlx::PgPool;
 

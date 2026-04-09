@@ -2,6 +2,9 @@
 pub mod postgres;
 
 #[cfg(feature = "postgres")]
+pub mod postgres_advanced;
+
+#[cfg(feature = "postgres")]
 pub use postgres as pg;
 
 #[cfg(feature = "postgres")]
