@@ -156,7 +156,7 @@ pub trait SqliteModelExt: SqliteModel {
         }
         let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
         for row in data {
-            if !insert_data.iter().any(|(c, _)| c == &row.0) { insert_data.push(*row); }
+            if !insert_data.iter().any(|(c, _)| c == &row.0) { insert_data.push(row.clone()); }
         }
         sqlite::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
     }
@@ -179,7 +179,7 @@ pub trait SqliteModelExt: SqliteModel {
         }
         let mut insert_data: Vec<(&str, SqlValue)> = conditions.to_vec();
         for row in data {
-            if !insert_data.iter().any(|(c, _)| c == &row.0) { insert_data.push(*row); }
+            if !insert_data.iter().any(|(c, _)| c == &row.0) { insert_data.push(row.clone()); }
         }
         sqlite::insert_returning::<Self>(pool, Self::table_name(), &insert_data).await
     }
