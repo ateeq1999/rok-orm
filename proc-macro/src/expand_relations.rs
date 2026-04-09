@@ -4,7 +4,7 @@ use heck::ToSnakeCase;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, Token, parse::Parse};
+use syn::{Data, DeriveInput, Fields, Token};
 
 pub fn get_type_name(ty: &syn::Type) -> String {
     match ty {
@@ -106,6 +106,27 @@ pub fn derive_relations(input: DeriveInput) -> syn::Result<TokenStream> {
                                 Self::table_name(), Self::primary_key(),
                                 #pivot.to_string(), #left_key.to_string(),
                                 #right_key.to_string(),
+                                #target::table_name(), #target::primary_key(),
+                            )
+                        }
+                    });
+                    Ok(())
+                } else if meta.path.is_ident("many_to_many") {
+                    // #[model(many_to_many(Target))]
+                    let value = meta.value()?;
+                    let target: syn::Type = value.parse()?;
+                    let target_name = get_type_name(&target);
+                    let pivot = format!(
+                        "{}_{}",
+                        struct_name.to_string().to_snake_case(),
+                        target_name.to_snake_case()
+                    );
+                    let left_key = format!("{}_id", struct_name.to_string().to_snake_case());
+                    let right_key = format!("{}_id", target_name.to_snake_case());
+                    relations_impls.push(quote! {
+                        fn #field_ident(&self) -> ::rok_orm::relations::ManyToMany<Self, #target> {
+                            ::rok_orm::relations::ManyToMany::new(
+                                #pivot, #left_key, #right_key,
                                 #target::table_name(), #target::primary_key(),
                             )
                         }
