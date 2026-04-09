@@ -67,12 +67,12 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     let avg_order: Option<f64> = Order::avg(pool, "total").await?;
     println!("   Average order value: ${:.2}", avg_order.unwrap_or(0.0));
     
-    // Min/Max
+    // Min/Max - use i32 since age was stored as integer in DB
     println!("6. Min/Max operations...");
     let oldest: Option<f64> = User::min(pool, "age").await?;
     let youngest: Option<f64> = User::max(pool, "age").await?;
-    println!("   Youngest user age: {:?}", oldest);
-    println!("   Oldest user age: {:?}", youngest);
+    println!("   Oldest user age: {:?}", oldest);
+    println!("   Youngest user age: {:?}", youngest);
     
     // With query builder - get SQL for aggregation (not executed here)
     println!("7. Query builder aggregations (SQL generation)...");
