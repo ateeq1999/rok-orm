@@ -1,79 +1,87 @@
-# Bug Fix Progress
+# rok-orm Example Bug Tracker
 
-This document tracks the status of bugs found in the example code.
+Issues found by running `cargo build` against `examples/14a-core`.
 
-## Overall Status
+**Discovery date:** 2026-04-13
+**Example project:** `examples/14a-core/src/`
+**Build command:** `cd examples/14a-core && cargo build`
 
-- **Total Bugs**: 12
-- **Fixed**: 3
-- **In Progress**: 0
-- **Pending**: 9
+---
 
-## Bug Status Detail
+## Summary
 
-### Fixed ✓
+| ID | Severity | File(s) | Title | Status |
+|---|---|---|---|---|
+| [bug-001](bug-001-missing-pgmodel-trait-imports.md) | critical | all except basic_model | Missing `PgModel` / `PgModelExt` trait imports | open |
+| [bug-002](bug-002-wrong-relations-derive-syntax.md) | critical | relationships.rs | Wrong `#[derive(Relations)]` syntax | open |
+| [bug-003](bug-003-querybuilder-missing-fluent-executor-methods.md) | critical | most files | `QueryBuilder` missing `.get()`, `.count()`, `.first()` | open |
+| [bug-004](bug-004-find-by-pk-returns-option-not-t.md) | high | crud_operations, timestamps | `find_by_pk` returns `Option<T>`, used as `T` | open |
+| [bug-005](bug-005-upsert-wrong-argument-signature.md) | high | crud_operations.rs | `upsert()` called with wrong / missing arguments | open |
+| [bug-006](bug-006-pagination-wrong-api-usage.md) | high | pagination.rs | `paginate()` on `QueryBuilder` receives pool argument | open |
+| [bug-007](bug-007-eager-loading-with-posts-field-missing.md) | high | relationships.rs | `.with("posts")` result not accessible as struct field | open |
+| [bug-008](bug-008-transactions-unescaped-format-braces.md) | low | transactions.rs | Unescaped `{` `}` in `println!` strings | open |
+| [bug-009](bug-009-query-scope-chaining-on-wrong-type.md) | medium | query_scopes.rs | Scope method `.role()` chained on `QueryBuilder` | open |
+| [bug-010](bug-010-aggregate-methods-wrong-arg-order-and-return-type.md) | high | aggregations.rs | `sum/avg/min/max` arg order inverted + wrong return types | open |
+| [bug-011](bug-011-soft-delete-wrong-static-method-names.md) | high | soft_deletes.rs | Soft delete called as static, not builder method | open |
+| [bug-012](bug-012-format-string-in-sqlvalue-context.md) | medium | relationships, pagination, aggregations | `.into()` inference ambiguity without trait in scope | open |
 
-| Bug ID | Title | Status |
-|--------|-------|--------|
-| bug-001 | Missing PgModel/PgModelExt trait imports | **FIXED** |
-| bug-004 | find_by_pk returns Option not T | **FIXED** |
-| bug-006 | Pagination API used incorrectly | **FIXED** |
+---
 
-### In Progress 🔄
+## Fix Priority
 
-None currently.
+### Must fix before `cargo build` succeeds
 
-### Pending ⏳
+1. **bug-001** — Add `use rok_orm::{PgModel, PgModelExt};` to every example file.
+   Unblocks most secondary errors automatically.
 
-| Bug ID | Title | Priority | Status |
-|--------|-------|----------|--------|
-| bug-002 | Wrong Relations derive syntax | critical | ⏳ Pending |
-| bug-003 | QueryBuilder missing fluent executor methods | critical | ⏳ Pending |
-| bug-005 | upsert() wrong argument signature | high | ⏳ Pending |
-| bug-007 | Eager loading with posts field missing | high | ⏳ Pending |
-| bug-008 | Transactions unescaped format braces | low | ⏳ Pending |
-| bug-009 | Query scope chaining on wrong type | medium | ⏳ Pending |
-| bug-010 | Aggregate methods wrong arg order and return type | high | ⏳ Pending |
-| bug-011 | Soft delete wrong static method names | high | ⏳ Pending |
-| bug-012 | Format string in SqlValue context | medium | ⏳ Pending |
+2. **bug-008** — Escape braces in `transactions.rs` `println!` calls. 2-line fix.
 
-## Next Phase
+3. **bug-002** — Rewrite the `Relations` derive usage in `relationships.rs`.
 
-The next phase of fixes focuses on **QueryBuilder executor methods** (bug-003) and **Relations derive syntax** (bug-002).
+4. **bug-003** — Largest change: either add fluent executor methods to `QueryBuilder`
+   (API enhancement, affects the library) or rewrite example calls to use
+   `PgModel` / `executor::postgres` APIs directly (affects only examples).
 
-Once these are resolved, the following examples can be uncommented:
-- `relationships`
-- `soft_deletes`
-- `timestamps`
-- `transactions`
-- `query_scopes`
-- `query_logging`
+### Fix after build passes
 
-## How to Help
+5. **bug-004** — Use `find_or_404` or `.ok_or(RowNotFound)?` for `find_by_pk` results.
+6. **bug-005** — Add missing `conflict_column` / `update_columns` to `upsert()` calls.
+7. **bug-006** — Use `paginate_where(pool, builder, page, per_page)` for custom pagination.
+8. **bug-010** — Swap arg order in `sum/avg/min/max`; fix `Option<i32>` → `Option<f64>`.
+9. **bug-011** — Replace `Post::with_soft_delete()` with `Post::query().with_trashed()`.
+10. **bug-009** — Replace `.role("user")` chain with `.filter("role", "user")`.
+11. **bug-007** — Remove `u.posts.len()` or load posts separately; document limitation.
+12. **bug-012** — Optional: use explicit `SqlValue::*` constructors for clarity.
 
-1. Pick a pending bug from the list above
-2. Read the bug description in `issues/bug-XXX-*.md`
-3. Implement the fix in the relevant example file
-4. Test with `cargo run <example-name>`
-5. Update this README with status change
+---
 
-## Running Examples
+## Root Cause Analysis
 
-From `examples/14a-core`:
+Three systemic problems account for almost all bugs:
 
-```bash
-# Run all currently working examples
-cargo run all
+### 1. Missing trait imports (bug-001)
 
-# Run individual examples
-cargo run basic_model
-cargo run crud
-cargo run pagination
-cargo run aggregations
+Rust requires traits to be in scope before their methods are callable. The examples
+were written as if `PgModel` / `PgModelExt` methods are auto-imported. All example
+files need explicit `use rok_orm::{PgModel, PgModelExt};`.
+
+### 2. Fluent executor API gap (bug-003)
+
+The examples expect `QueryBuilder<T>` to be directly executable:
+
+```rust
+User::query().filter("active", true).get(pool).await?
 ```
 
-## Progress Timeline
+The actual API separates query construction (`QueryBuilder`) from execution
+(`PgModel` trait or `executor::postgres` free functions). This is the single most
+impactful gap — it affects every example that chains query conditions with execution.
 
-- **Phase 1** (COMPLETE): Fixed trait imports (bug-001), Option handling (bug-004), Pagination API (bug-006)
-- **Phase 2** (NEXT): Fix QueryBuilder executor methods (bug-003) and Relations syntax (bug-002)
-- **Phase 3**: Remaining bug fixes and full example suite enablement
+**Recommended long-term fix:** add feature-gated `.get(pool)`, `.count(pool)`,
+`.first(pool)` methods to `QueryBuilder` so the fluent pattern works as written.
+
+### 3. API mismatches from stale example code (bugs 004–012)
+
+Several examples were written against an earlier or assumed API design that differed
+from what was implemented: argument order for aggregates, `Option` vs `T` for
+`find_by_pk`, static soft-delete methods, and relation derive syntax.
