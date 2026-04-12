@@ -30,6 +30,7 @@
 
 pub mod blueprint;
 pub mod column;
+pub mod generator;
 pub mod inspector;
 #[cfg(test)]
 mod tests;

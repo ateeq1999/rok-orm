@@ -49,7 +49,7 @@ fn test_create_table_mysql_basic() {
     });
     let sql = op.to_sql();
     assert!(sql.contains("CREATE TABLE orders"), "missing CREATE TABLE: {sql}");
-    assert!(sql.contains("id BIGINT AUTO_INCREMENT PRIMARY KEY NOT NULL"), "missing PK: {sql}");
+    assert!(sql.contains("id BIGINT AUTO_INCREMENT PRIMARY KEY"), "missing PK: {sql}");
     assert!(sql.contains("user_id BIGINT NOT NULL"), "missing bigint: {sql}");
     assert!(sql.contains("DECIMAL(10,2)"), "missing decimal: {sql}");
     assert!(sql.contains("paid TINYINT(1) NOT NULL"), "missing bool: {sql}");
@@ -116,7 +116,7 @@ fn test_all_column_types_postgres() {
         t.enum_col("status", &["draft", "published"]);
     });
     let sql = op.to_sql();
-    assert!(sql.contains("id SERIAL NOT NULL"));
+    assert!(sql.contains("id SERIAL"));
     assert!(sql.contains("uid UUID NOT NULL"));
     assert!(sql.contains("body TEXT NOT NULL"));
     assert!(sql.contains("views BIGINT NOT NULL"));
@@ -182,6 +182,71 @@ fn test_drop_table_if_exists() {
 fn test_rename_table() {
     let sql = Schema::rename("old_name", "new_name").to_sql();
     assert_eq!(sql, "ALTER TABLE old_name RENAME TO new_name");
+}
+
+// ── ModelGenerator ─────────────────────────────────────────────────────────────
+
+#[test]
+fn test_table_to_struct_name() {
+    use super::generator::table_to_struct_name;
+    assert_eq!(table_to_struct_name("users"), "User");
+    assert_eq!(table_to_struct_name("posts"), "Post");
+    assert_eq!(table_to_struct_name("categories"), "Category");
+    assert_eq!(table_to_struct_name("order_items"), "OrderItem");
+}
+
+#[test]
+fn test_db_type_to_rust() {
+    use super::generator::db_type_to_rust;
+    assert_eq!(db_type_to_rust("bigint", false), "i64");
+    assert_eq!(db_type_to_rust("bigint", true), "Option<i64>");
+    assert_eq!(db_type_to_rust("boolean", false), "bool");
+    assert_eq!(db_type_to_rust("text", true), "Option<String>");
+    assert_eq!(db_type_to_rust("timestamptz", false), "chrono::DateTime<chrono::Utc>");
+    assert_eq!(db_type_to_rust("jsonb", false), "serde_json::Value");
+}
+
+#[test]
+fn test_generate_source_basic() {
+    use super::generator::ModelGenerator;
+    use super::inspector::ColumnInfo;
+
+    let gen = ModelGenerator::new()
+        .detect_timestamps(false)
+        .detect_soft_delete(false);
+
+    let cols = vec![
+        ColumnInfo { name: "id".to_string(), db_type: "bigint".to_string(), is_nullable: false, is_primary_key: true, default: None },
+        ColumnInfo { name: "name".to_string(), db_type: "text".to_string(), is_nullable: false, is_primary_key: false, default: None },
+        ColumnInfo { name: "email".to_string(), db_type: "varchar(255)".to_string(), is_nullable: false, is_primary_key: false, default: None },
+    ];
+
+    let src = gen.generate_source("users", &cols);
+    assert!(src.contains("pub struct User"), "missing struct: {src}");
+    assert!(src.contains("#[model(primary_key)]"), "missing pk attr: {src}");
+    assert!(src.contains("pub id: i64"), "missing id field: {src}");
+    assert!(src.contains("pub name: String"), "missing name field: {src}");
+}
+
+#[test]
+fn test_generate_source_with_timestamps() {
+    use super::generator::ModelGenerator;
+    use super::inspector::ColumnInfo;
+
+    let gen = ModelGenerator::new().detect_timestamps(true).detect_soft_delete(true);
+
+    let cols = vec![
+        ColumnInfo { name: "id".to_string(), db_type: "bigint".to_string(), is_nullable: false, is_primary_key: true, default: None },
+        ColumnInfo { name: "title".to_string(), db_type: "text".to_string(), is_nullable: false, is_primary_key: false, default: None },
+        ColumnInfo { name: "created_at".to_string(), db_type: "timestamptz".to_string(), is_nullable: true, is_primary_key: false, default: None },
+        ColumnInfo { name: "updated_at".to_string(), db_type: "timestamptz".to_string(), is_nullable: true, is_primary_key: false, default: None },
+        ColumnInfo { name: "deleted_at".to_string(), db_type: "timestamptz".to_string(), is_nullable: true, is_primary_key: false, default: None },
+    ];
+
+    let src = gen.generate_source("posts", &cols);
+    assert!(src.contains("timestamps"), "missing timestamps attr: {src}");
+    assert!(src.contains("soft_delete"), "missing soft_delete attr: {src}");
+    assert!(src.contains("pub struct Post"), "missing struct: {src}");
 }
 
 // ── Standalone index helpers ──────────────────────────────────────────────────

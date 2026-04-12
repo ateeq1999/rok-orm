@@ -1,7 +1,7 @@
 # Phase 9: Schema Builder & Migrations
 
 > **Target version:** v0.5.0
-> **Status:** 🔜 Planned
+> **Status:** ✅ Complete
 > **Dependency:** Phase 9.1 must be complete before 9.2 and 9.3
 
 ---
@@ -104,19 +104,19 @@ src/schema/
 
 ### Tasks
 
-- [ ] Create `src/schema/` module tree
-- [ ] Define `Schema` struct with static methods (`create`, `alter`, `drop`, `drop_if_exists`, `rename`, `has_table`, `has_column`)
-- [ ] Define `Blueprint` struct; all column methods return `&mut ColumnDef` for fluent modifiers
-- [ ] Define `ColumnDef` with: `nullable()`, `default(val)`, `unique()`, `not_null()`, `primary()`
-- [ ] Define `ForeignKey` builder: `references(table, col)`, `on_delete(action)`, `on_update(action)`
-- [ ] Define `ForeignAction` enum: `Cascade`, `Restrict`, `SetNull`, `SetDefault`, `NoAction`
-- [ ] Generate dialect-specific DDL SQL per column type:
+- [x] Create `src/schema/` module tree
+- [x] Define `Schema` struct with static methods (`create`, `alter`, `drop`, `drop_if_exists`, `rename`, `has_table`, `has_column`)
+- [x] Define `Blueprint` struct; all column methods return `&mut ColumnDef` for fluent modifiers
+- [x] Define `ColumnDef` with: `nullable()`, `default(val)`, `unique()`, `not_null()`, `primary()`
+- [x] Define `ForeignKey` builder: `references(table, col)`, `on_delete(action)`, `on_update(action)`
+- [x] Define `ForeignAction` enum: `Cascade`, `Restrict`, `SetNull`, `SetDefault`, `NoAction`
+- [x] Generate dialect-specific DDL SQL per column type:
   - PostgreSQL: `BIGSERIAL`, `BOOLEAN`, `TIMESTAMPTZ`, `JSONB`, `UUID`
   - SQLite: `INTEGER`, `INTEGER` (bool), `TEXT` (date/json/uuid)
   - MySQL: `BIGINT AUTO_INCREMENT`, `TINYINT(1)`, `DATETIME`, `JSON`, `CHAR(36)`
-- [ ] Add `Schema::alter()` — generates `ALTER TABLE` with add/drop/rename/change
-- [ ] Add `Schema::has_table()` and `Schema::has_column()` via dialect-specific queries
-- [ ] Tests: DDL generation for each type per dialect, modify column, foreign key SQL
+- [x] Add `Schema::alter()` — generates `ALTER TABLE` with add/drop/rename/change
+- [x] Add `Schema::has_table()` and `Schema::has_column()` via dialect-specific queries
+- [x] Tests: DDL generation for each type per dialect, modify column, foreign key SQL
 
 ---
 
@@ -177,24 +177,24 @@ CREATE TABLE migrations (
 
 ### Tasks
 
-- [ ] Define `Migration` trait: `name() -> &'static str`, `up(pool) -> OrmResult<()>`, `down(pool) -> OrmResult<()>`
-- [ ] Define `MigrationStatus` struct: `name`, `batch`, `run_at`, `is_pending`
-- [ ] Create `Migrator` struct with `migrations: Vec<Box<dyn Migration>>`
-- [ ] Add `add(migration)` builder method
-- [ ] Implement `run()`:
+- [x] Define `Migration` trait: `name() -> &'static str`, `up(pool) -> OrmResult<()>`, `down(pool) -> OrmResult<()>`
+- [x] Define `MigrationStatus` struct: `name`, `batch`, `run_at`, `is_pending`
+- [x] Create `Migrator` struct with `migrations: Vec<Box<dyn Migration>>`
+- [x] Add `add(migration)` builder method
+- [x] Implement `run()`:
   1. Ensure `migrations` table exists (create if not)
   2. Fetch list of already-run migration names
   3. Filter pending, sort by name
   4. Run each `up()` in sequence, record in `migrations` with incremented batch
-- [ ] Implement `rollback(n)`:
+- [x] Implement `rollback(n)`:
   1. Find the last N distinct batches
   2. For each migration in reverse, call `down()`
   3. Delete from `migrations`
-- [ ] Implement `reset()` — rollback all batches
-- [ ] Implement `fresh()` — reset + run
-- [ ] Implement `status()` — return all migrations with applied/pending state
-- [ ] Create `migrations` table DDL for each dialect
-- [ ] Tests: run, rollback, reset, fresh, status, idempotent run
+- [x] Implement `reset()` — rollback all batches
+- [x] Implement `fresh()` — reset + run
+- [x] Implement `status()` — return all migrations with applied/pending state
+- [x] Create `migrations` table DDL for each dialect
+- [x] Tests: run, rollback, reset, fresh, status, idempotent run
 
 ---
 
@@ -282,26 +282,26 @@ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?;
 
 ### Tasks
 
-- [ ] Add `src/schema/inspector.rs`: `inspect_table(pool, table_name) -> Vec<ColumnInfo>`
-- [ ] Define `ColumnInfo` struct: `name`, `db_type`, `is_nullable`, `is_primary_key`, `default`
-- [ ] Implement inspector for PG, SQLite, MySQL using dialect detection
-- [ ] Map `ColumnInfo` → Rust type string using type mapping table above
-- [ ] Detect `created_at` / `updated_at` → add `timestamps` attribute
-- [ ] Detect `deleted_at` → add `soft_delete` attribute
-- [ ] Detect PK column → add `#[model(primary_key)]`
-- [ ] Generate struct source as a `String` using template
-- [ ] Write files to `output_dir/{singular_snake_case}.rs`
-- [ ] Create `ModelGenerator` builder struct
-- [ ] Add CLI hook: `rok make:models-from-db` (see `orm-cli.md`)
-- [ ] Tests: generate from mock schema, verify output for all types, nullable handling
+- [x] Add `src/schema/inspector.rs`: `inspect_table(pool, table_name) -> Vec<ColumnInfo>`
+- [x] Define `ColumnInfo` struct: `name`, `db_type`, `is_nullable`, `is_primary_key`, `default`
+- [x] Implement inspector for PG, SQLite, MySQL using dialect detection
+- [x] Map `ColumnInfo` → Rust type string using type mapping table above
+- [x] Detect `created_at` / `updated_at` → add `timestamps` attribute
+- [x] Detect `deleted_at` → add `soft_delete` attribute
+- [x] Detect PK column → add `#[model(primary_key)]`
+- [x] Generate struct source as a `String` using template
+- [x] Write files to `output_dir/{singular_snake_case}.rs`
+- [x] Create `ModelGenerator` builder struct
+- [x] Add CLI hook: `rok make:models-from-db` (see `orm-cli.md`)
+- [x] Tests: generate from mock schema, verify output for all types, nullable handling
 
 ---
 
 ## Acceptance Criteria for Phase 9
 
-- [ ] Schema Builder generates valid SQL for all 3 dialects
-- [ ] Migration system: run, rollback, reset, fresh all work correctly
-- [ ] Auto-generated models compile with `cargo check`
-- [ ] Tests: Blueprint DDL, migration lifecycle, model generation for each dialect
-- [ ] `cargo clippy -- -D warnings` clean
-- [ ] Phase file tasks all checked off
+- [x] Schema Builder generates valid SQL for all 3 dialects
+- [x] Migration system: run, rollback, reset, fresh all work correctly
+- [x] Auto-generated models compile with `cargo check`
+- [x] Tests: Blueprint DDL, migration lifecycle, model generation for each dialect
+- [x] `cargo clippy -- -D warnings` clean
+- [x] Phase file tasks all checked off

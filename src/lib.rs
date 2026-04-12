@@ -95,6 +95,11 @@ pub use hooks::{HookError, HookType, ModelHooks, HookExecutor};
 
 pub mod schema;
 pub use schema::{Schema, Blueprint, ColumnType, ColumnDef, SchemaDialect, ForeignAction};
+pub use schema::generator::ModelGenerator;
+
+pub mod migration;
+#[cfg(feature = "postgres")]
+pub use migration::{Migration, Migrator, MigrationStatus};
 
 #[cfg(feature = "postgres")]
 pub mod transaction;
