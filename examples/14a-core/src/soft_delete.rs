@@ -4,7 +4,7 @@
 // NOTE: Temporarily disabled soft_delete to verify other fixes work
 // TODO: Fix soft_delete implementation
 
-use rok_orm::{Model, PgModel, PgModelExt};
+use rok_orm::{Model, PgModel};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]

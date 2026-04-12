@@ -2,7 +2,7 @@
 //! 
 //! Demonstrates: timestamps attribute, created_at, updated_at
 
-use rok_orm::{Model, PgModel, PgModelExt};
+use rok_orm::{Model, PgModel};
 use serde::{Deserialize, Serialize};
 
 #[derive(Model, sqlx::FromRow, Debug, Clone, Serialize, Deserialize)]

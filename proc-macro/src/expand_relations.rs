@@ -61,7 +61,7 @@ pub fn derive_relations(input: DeriveInput) -> syn::Result<TokenStream> {
                             ::rok_orm::relations::HasMany::new(
                                 Self::table_name(), Self::primary_key(),
                                 #target::table_name(), #target::primary_key(),
-                                #foreign_key,
+                                #foreign_key.to_string(),
                             )
                         }
                     });
@@ -90,7 +90,7 @@ pub fn derive_relations(input: DeriveInput) -> syn::Result<TokenStream> {
                     relations_impls.push(quote! {
                         fn #field_ident(&self) -> ::rok_orm::relations::BelongsTo<Self, #target> {
                             ::rok_orm::relations::BelongsTo::new(
-                                Self::table_name(), #foreign_key,
+                                Self::table_name(), #foreign_key.to_string(),
                                 #target::table_name(), #target::primary_key(),
                             )
                         }

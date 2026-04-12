@@ -98,6 +98,18 @@ impl<T: Into<SqlValue>> From<Option<T>> for SqlValue {
     }
 }
 
+impl From<chrono::DateTime<chrono::Utc>> for SqlValue {
+    fn from(dt: chrono::DateTime<chrono::Utc>) -> Self {
+        Self::Text(dt.to_rfc3339())
+    }
+}
+
+impl From<chrono::NaiveDateTime> for SqlValue {
+    fn from(dt: chrono::NaiveDateTime) -> Self {
+        Self::Text(dt.format("%Y-%m-%dT%H:%M:%S").to_string())
+    }
+}
+
 // ΓöÇΓöÇ JoinOp ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 /// The logical operator used to join a condition to the preceding clause.

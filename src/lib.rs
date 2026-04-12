@@ -93,6 +93,9 @@ pub use logging::{Logger, LogLevel, LogEntry, QueryTimer};
 pub mod hooks;
 pub use hooks::{HookError, HookType, ModelHooks, HookExecutor};
 
+pub mod schema;
+pub use schema::{Schema, Blueprint, ColumnType, ColumnDef, SchemaDialect, ForeignAction};
+
 #[cfg(feature = "postgres")]
 pub mod transaction;
 

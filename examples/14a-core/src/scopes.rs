@@ -68,11 +68,8 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     
     // Chain scopes - combine multiple filters
     println!("4. Chaining scopes (active + role='user')...");
-    // Note: chaining works because each scope returns QueryBuilder
-    let active_query = User::active();
-    let role_query = User::role("user");
-    // Combine using AND logic (both filters applied)
-    let combined = active_query.filter("role", "user");
+    // Combine using AND logic: start from active(), add role filter
+    let combined = User::active().filter("role", "user");
     let active_users = User::get_where(pool, combined).await?;
     println!("   Active users with role 'user': {}", active_users.len());
     

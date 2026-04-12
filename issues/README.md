@@ -12,18 +12,18 @@ Issues found by running `cargo build` against `examples/14a-core`.
 
 | ID | Severity | File(s) | Title | Status |
 |---|---|---|---|---|
-| [bug-001](bug-001-missing-pgmodel-trait-imports.md) | critical | all except basic_model | Missing `PgModel` / `PgModelExt` trait imports | open |
-| [bug-002](bug-002-wrong-relations-derive-syntax.md) | critical | relationships.rs | Wrong `#[derive(Relations)]` syntax | open |
-| [bug-003](bug-003-querybuilder-missing-fluent-executor-methods.md) | critical | most files | `QueryBuilder` missing `.get()`, `.count()`, `.first()` | open |
-| [bug-004](bug-004-find-by-pk-returns-option-not-t.md) | high | crud_operations, timestamps | `find_by_pk` returns `Option<T>`, used as `T` | open |
-| [bug-005](bug-005-upsert-wrong-argument-signature.md) | high | crud_operations.rs | `upsert()` called with wrong / missing arguments | open |
-| [bug-006](bug-006-pagination-wrong-api-usage.md) | high | pagination.rs | `paginate()` on `QueryBuilder` receives pool argument | open |
-| [bug-007](bug-007-eager-loading-with-posts-field-missing.md) | high | relationships.rs | `.with("posts")` result not accessible as struct field | open |
-| [bug-008](bug-008-transactions-unescaped-format-braces.md) | low | transactions.rs | Unescaped `{` `}` in `println!` strings | open |
-| [bug-009](bug-009-query-scope-chaining-on-wrong-type.md) | medium | query_scopes.rs | Scope method `.role()` chained on `QueryBuilder` | open |
-| [bug-010](bug-010-aggregate-methods-wrong-arg-order-and-return-type.md) | high | aggregations.rs | `sum/avg/min/max` arg order inverted + wrong return types | open |
-| [bug-011](bug-011-soft-delete-wrong-static-method-names.md) | high | soft_deletes.rs | Soft delete called as static, not builder method | open |
-| [bug-012](bug-012-format-string-in-sqlvalue-context.md) | medium | relationships, pagination, aggregations | `.into()` inference ambiguity without trait in scope | open |
+| [bug-001](bug-001-missing-pgmodel-trait-imports.md) | critical | all except basic_model | Missing `PgModel` / `PgModelExt` trait imports | closed |
+| [bug-002](bug-002-wrong-relations-derive-syntax.md) | critical | relationships.rs | Wrong `#[derive(Relations)]` syntax | closed |
+| [bug-003](bug-003-querybuilder-missing-fluent-executor-methods.md) | critical | most files | `QueryBuilder` missing `.get()`, `.count()`, `.first()` | closed |
+| [bug-004](bug-004-find-by-pk-returns-option-not-t.md) | high | crud_operations, timestamps | `find_by_pk` returns `Option<T>`, used as `T` | closed |
+| [bug-005](bug-005-upsert-wrong-argument-signature.md) | high | crud_operations.rs | `upsert()` called with wrong / missing arguments | closed |
+| [bug-006](bug-006-pagination-wrong-api-usage.md) | high | pagination.rs | `paginate()` on `QueryBuilder` receives pool argument | closed |
+| [bug-007](bug-007-eager-loading-with-posts-field-missing.md) | high | relationships.rs | `.with("posts")` result not accessible as struct field | closed |
+| [bug-008](bug-008-transactions-unescaped-format-braces.md) | low | transactions.rs | Unescaped `{` `}` in `println!` strings | closed |
+| [bug-009](bug-009-query-scope-chaining-on-wrong-type.md) | medium | query_scopes.rs | Scope method `.role()` chained on `QueryBuilder` | closed |
+| [bug-010](bug-010-aggregate-methods-wrong-arg-order-and-return-type.md) | high | aggregations.rs | `sum/avg/min/max` arg order inverted + wrong return types | closed |
+| [bug-011](bug-011-soft-delete-wrong-static-method-names.md) | high | soft_deletes.rs | Soft delete called as static, not builder method | closed |
+| [bug-012](bug-012-format-string-in-sqlvalue-context.md) | medium | relationships, pagination, aggregations | `.into()` inference ambiguity without trait in scope | closed |
 
 ---
 

@@ -27,7 +27,7 @@ pub async fn run(pool: &sqlx::PgPool) -> rok_orm::OrmResult<()> {
     println!("2. Timing a query...");
     let timer = QueryTimer::new();
     
-    let users = User::query()
+    let _users = User::query()
         .filter("active", true)
         .limit(10)
         .get(pool)
