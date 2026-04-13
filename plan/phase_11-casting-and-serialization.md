@@ -1,7 +1,7 @@
 # Phase 11: Model Casting & Serialization
 
 > **Target version:** v0.6.0
-> **Status:** 🔜 Planned
+> **Status:** ✅ Complete
 
 ---
 
@@ -51,15 +51,15 @@ pub struct User {
 
 ### Tasks
 
-- [ ] Define `Cast` enum: `Json`, `DateTime`, `Bool`, `Csv`, `Encrypted`
-- [ ] Add `#[model(cast = "...")]` field attribute to macro parser
-- [ ] Generate a `post_process(row: &mut Self)` method called after `from_row`
-- [ ] For each cast field, decode from raw `SqlValue` to typed Rust value in `post_process`
-- [ ] Generate `pre_encode(data: &mut Vec<(&str, SqlValue)>)` called before INSERT/UPDATE
-- [ ] For each cast field in data, encode Rust value → `SqlValue` via cast logic
-- [ ] Define `Encryptor` trait: `encrypt(plaintext: &str) -> String`, `decrypt(ciphertext: &str) -> OrmResult<String>`
-- [ ] Add `Model::set_encryptor(impl Encryptor + Send + Sync + 'static)` global registration
-- [ ] Tests: all 5 cast types encode/decode correctly, round-trip through DB
+- [x] Define `Cast` enum: `Json`, `DateTime`, `Bool`, `Csv`, `Encrypted`
+- [x] Add `#[model(cast = "...")]` field attribute to macro parser
+- [x] Generate a `post_process(row: &mut Self)` method called after `from_row`
+- [x] For each cast field, decode from raw `SqlValue` to typed Rust value in `post_process`
+- [x] Generate `pre_encode(data: &mut Vec<(&str, SqlValue)>)` called before INSERT/UPDATE (via `to_fields` cast encoding)
+- [x] For each cast field in data, encode Rust value → `SqlValue` via cast logic
+- [x] Define `Encryptor` trait: `encrypt(plaintext: &str) -> String`, `decrypt(ciphertext: &str) -> OrmResult<String>`
+- [x] Add `set_encryptor(Box<dyn Encryptor>)` global registration + `encrypt`/`decrypt` free functions
+- [x] Tests: all 5 cast types encode/decode correctly, round-trip through DB
 
 ---
 
@@ -106,16 +106,16 @@ let json = serde_json::to_string(&user.make_hidden(&["email"]).serialize())?;
 
 ### Tasks
 
-- [ ] Add `hidden() -> &'static [&'static str]` to `Model` trait
-- [ ] Add `visible() -> &'static [&'static str]` to `Model` trait
-- [ ] Generate from `#[model(hidden = [...])]` / `#[model(visible = [...])]`
-- [ ] Add `appends() -> &'static [&'static str]` to `Model` trait
-- [ ] Generate `{Model}Appends` trait with one method per appended field returning `serde_json::Value`
-- [ ] Add `Model::serialize(&self) -> serde_json::Value` — builds JSON from all non-hidden fields + appends
-- [ ] Add `make_visible(&self, fields: &[&str]) -> SerializeOverride<Self>` wrapper
-- [ ] Add `make_hidden(&self, fields: &[&str]) -> SerializeOverride<Self>` wrapper
-- [ ] `SerializeOverride<T>` wraps the model + override sets, implements `Serialize`
-- [ ] Tests: hidden fields absent, visible whitelist works, appends present, make_visible/hidden overrides
+- [x] Add `hidden() -> &'static [&'static str]` to `Model` trait
+- [x] Add `visible() -> &'static [&'static str]` to `Model` trait
+- [x] Generate from `#[model(hidden = [...])]` / `#[model(visible = [...])]`
+- [x] Add `appends() -> &'static [&'static str]` to `Model` trait
+- [x] Generate `{Model}Appends` trait with one method per appended field returning `serde_json::Value`
+- [x] Add `Model::serialize(&self) -> serde_json::Value` — builds JSON from all non-hidden fields + appends
+- [x] Add `make_visible(&self, fields: &[&str]) -> SerializeOverride<Self>` wrapper
+- [x] Add `make_hidden(&self, fields: &[&str]) -> SerializeOverride<Self>` wrapper
+- [x] `SerializeOverride<T>` wraps the model + override sets, implements `Serialize`
+- [x] Tests: hidden fields absent, visible whitelist works, appends present, make_visible/hidden overrides
 
 ---
 
@@ -164,22 +164,22 @@ let name = user.get_attribute("name");  // → "Alice!"
 
 ### Tasks
 
-- [ ] Add `#[model(accessor)]` field attribute to macro parser
-- [ ] Generate `{Model}Accessors` trait with:
-  - `fn get_{field}(&self) -> {FieldType}` (default: return `self.{field}.clone()`)
+- [x] Add `#[model(accessor)]` field attribute to macro parser
+- [x] Generate `{Model}Accessors` trait with:
+  - `fn get_{field}(&self) -> SqlValue` (user implements)
   - `fn set_{field}(val: SqlValue) -> SqlValue` (default: return `val`)
-- [ ] Add `Model::get_attribute(&self, col: &str) -> SqlValue` — calls the appropriate `get_*` method
-- [ ] Apply `set_*` mutators in `pre_encode` before INSERT/UPDATE
-- [ ] `serialize()` calls `get_*` for each accessor-marked field
-- [ ] Tests: get accessor transforms value, set accessor transforms before insert, default (no accessor impl) passthrough
+- [x] Add `get_attribute(&self, col: &str) -> SqlValue` — calls the appropriate `get_*` method (inherent impl)
+- [x] Apply `set_*` mutators in `pre_encode` before INSERT/UPDATE
+- [x] `serialize()` calls `get_*` for each accessor-marked field
+- [x] Tests: get accessor transforms value, set accessor transforms before insert, default (no accessor impl) passthrough
 
 ---
 
 ## Acceptance Criteria for Phase 11
 
-- [ ] All 3 sub-sections implemented
-- [ ] Casting round-trips through PG + SQLite (read/write)
-- [ ] `serialize()` tested against JSON output
-- [ ] Accessor transforms applied in both read and write paths
-- [ ] `cargo clippy -- -D warnings` clean
-- [ ] Phase file tasks all checked off
+- [x] All 3 sub-sections implemented
+- [x] Casting round-trips through PG + SQLite (read/write)
+- [x] `serialize()` tested against JSON output
+- [x] Accessor transforms applied in both read and write paths
+- [x] `cargo clippy -- -D warnings` clean
+- [x] Phase file tasks all checked off

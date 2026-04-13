@@ -270,7 +270,8 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
     let post_process_impl = gen_post_process(&cast_fields);
     let serial_trait_impls = gen_hidden_visible_appends(&hidden_cols, &visible_cols, &appends_fields);
     let serialize_impl  = gen_serialize_methods(
-        struct_name, &impl_generics, &ty_generics, where_clause, &appends_fields,
+        struct_name, &impl_generics, &ty_generics, where_clause,
+        &hidden_cols, &visible_cols, &appends_fields,
     );
     let accessor_impl   = gen_accessors(
         struct_name, &impl_generics, &ty_generics, where_clause, &accessor_fields,

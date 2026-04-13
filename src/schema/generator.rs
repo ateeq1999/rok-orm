@@ -52,12 +52,12 @@ pub fn db_type_to_rust(db_type: &str, is_nullable: bool) -> String {
 pub fn table_to_struct_name(table: &str) -> String {
     use heck::ToUpperCamelCase;
     // Strip trailing 's' / 'es' heuristic
-    let singular = if table.ends_with("ies") {
-        format!("{}y", &table[..table.len() - 3])
+    let singular = if let Some(stripped) = table.strip_suffix("ies") {
+        format!("{}y", stripped)
     } else if table.ends_with("ses") || table.ends_with("xes") || table.ends_with("ches") {
         table[..table.len() - 2].to_string()
-    } else if table.ends_with('s') {
-        table[..table.len() - 1].to_string()
+    } else if let Some(stripped) = table.strip_suffix('s') {
+        stripped.to_string()
     } else {
         table.to_string()
     };

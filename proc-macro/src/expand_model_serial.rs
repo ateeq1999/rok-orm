@@ -48,13 +48,24 @@ pub fn gen_hidden_visible_appends(
 /// Generate:
 /// - `{Model}Appends` trait (one method per appended field)
 /// - inherent `serialize()`, `make_visible()`, `make_hidden()` on the struct
+///
+/// Only emits output when `hidden`, `visible`, or `appends` attrs are present;
+/// models with no serialization control don't need these methods and would
+/// otherwise require `serde::Serialize` without explicitly asking for it.
 pub fn gen_serialize_methods(
     struct_name:   &Ident,
     impl_generics: &syn::ImplGenerics<'_>,
     ty_generics:   &syn::TypeGenerics<'_>,
     where_clause:  Option<&syn::WhereClause>,
+    hidden:        &[String],
+    visible:       &[String],
     appends:       &[String],
 ) -> TokenStream2 {
+    // Skip entirely for models without any serialization attributes.
+    if hidden.is_empty() && visible.is_empty() && appends.is_empty() {
+        return quote! {};
+    }
+
     let appends_trait_name = Ident::new(
         &format!("{}Appends", struct_name),
         struct_name.span(),

@@ -4,7 +4,7 @@
 
 ---
 
-## Current Version: 0.5.0
+## Current Version: 0.6.0
 
 ## Quick Status
 
@@ -15,8 +15,8 @@
 | [8](./plan/phase_08-developer-ergonomics.md)       | Developer Ergonomics             | v0.4.0         | ✅ Complete |
 | [9](./plan/phase_09-schema-and-migrations.md)      | Schema Builder & Migrations      | v0.5.0         | ✅ Complete |
 | [10](./plan/phase_10-advanced-query.md)            | Advanced Query Features          | v0.5.0         | ✅ Complete |
-| [11](./plan/phase_11-casting-and-serialization.md) | Model Casting & Serialization    | v0.6.0         | 🔜 Planned  |
-| [12](./plan/phase_12-testing-infrastructure.md)    | Testing Infrastructure           | v0.6.0         | 🔜 Planned  |
+| [11](./plan/phase_11-casting-and-serialization.md) | Model Casting & Serialization    | v0.6.0         | ✅ Complete |
+| [12](./plan/phase_12-testing-infrastructure.md)    | Testing Infrastructure           | v0.6.0         | 🚧 In Progress |
 | [13](./plan/phase_13-ecosystem.md)                 | Ecosystem (MSSQL / Redis / Axum) | v1.0.0         | 🔜 Planned  |
 | [CLI](./plan/orm-cli.md)                           | rok-cli Commands                 | separate crate | 🔜 Planned  |
 
