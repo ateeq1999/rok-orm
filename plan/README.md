@@ -6,19 +6,19 @@
 
 ## Progress Overview
 
-| Phase                                         | Title                                       | Version        | Status           |
-| --------------------------------------------- | ------------------------------------------- | -------------- | ---------------- |
-| [1–6](./phase_01-foundation-and-core.md)      | Foundation & Core (all prior work)          | v0.1–0.3       | ✅ Complete      |
-| —                                             | File-size refactor (500-line rule enforced) | v0.4.0         | ✅ Complete      |
-| [7](./phase_07-rich-relationships.md)         | Rich Relationships                          | v0.4.0         | ✅ Complete      |
-| [8](./phase_08-developer-ergonomics.md)       | Developer Ergonomics                        | v0.4.0         | ✅ Complete      |
-| [9](./phase_09-schema-and-migrations.md)      | Schema Builder & Migrations                 | v0.5.0         | ✅ Complete      |
-| [10](./phase_10-advanced-query.md)            | Advanced Query Features                     | v0.5.0         | ✅ Complete      |
-| [11](./phase_11-casting-and-serialization.md) | Model Casting & Serialization               | v0.6.0         | 🔜 Planned       |
-| [12](./phase_12-testing-infrastructure.md)    | Testing Infrastructure                      | v0.6.0         | 🔜 Planned       |
-| [13](./phase_13-ecosystem.md)                 | Ecosystem (MSSQL, Redis, Axum)              | v1.0.0         | 🔜 Planned       |
-| [14](./phase_14-examples.md)                  | Examples Implementation                     | v0.5.0         | 🚧 In Progress   |
-| [CLI](./orm-cli.md)                           | rok-cli — Command-Line Tool                 | separate crate | 🔜 Planned       |
+| Phase                                         | Title                                       | Version        | Status         |
+| --------------------------------------------- | ------------------------------------------- | -------------- | -------------- |
+| [1–6](./phase_01-foundation-and-core.md)      | Foundation & Core (all prior work)          | v0.1–0.3       | ✅ Complete    |
+| —                                             | File-size refactor (500-line rule enforced) | v0.4.0         | ✅ Complete    |
+| [7](./phase_07-rich-relationships.md)         | Rich Relationships                          | v0.4.0         | ✅ Complete    |
+| [8](./phase_08-developer-ergonomics.md)       | Developer Ergonomics                        | v0.4.0         | ✅ Complete    |
+| [9](./phase_09-schema-and-migrations.md)      | Schema Builder & Migrations                 | v0.5.0         | ✅ Complete    |
+| [10](./phase_10-advanced-query.md)            | Advanced Query Features                     | v0.5.0         | ✅ Complete    |
+| [11](./phase_11-casting-and-serialization.md) | Model Casting & Serialization               | v0.6.0         | 🔜 Planned     |
+| [12](./phase_12-testing-infrastructure.md)    | Testing Infrastructure                      | v0.6.0         | 🔜 Planned     |
+| [13](./phase_13-ecosystem.md)                 | Ecosystem (MSSQL, Redis, Axum)              | v1.0.0         | 🔜 Planned     |
+| [14](./phase_14-examples.md)                  | Examples Implementation                     | v0.5.0         | 🚧 In Progress |
+| [CLI](./orm-cli.md)                           | rok-cli — Command-Line Tool                 | separate crate | 🔜 Planned     |
 
 ---
 

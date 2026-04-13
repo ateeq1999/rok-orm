@@ -6,10 +6,16 @@ use proc_macro2::Span;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, LitStr, punctuated::Punctuated, Token};
 
+use crate::expand_model_cast::{CastFieldInfo, gen_to_fields, gen_post_process};
+use crate::expand_model_serial::{
+    gen_hidden_visible_appends, gen_serialize_methods, gen_accessors,
+};
+
 pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
     let struct_name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
+    // ── Struct-level attribute parsing ────────────────────────────────────────
     let mut custom_table: Option<String> = None;
     let mut struct_pk: Option<String> = None;
     let mut soft_delete = false;
@@ -24,82 +30,68 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
     let mut ulid_pk = false;
     let mut custom_id_fn: Option<String> = None;
     let mut connection_name: Option<String> = None;
+    // Phase 11 struct attrs
+    let mut hidden_cols: Vec<String> = Vec::new();
+    let mut visible_cols: Vec<String> = Vec::new();
+    let mut appends_fields: Vec<String> = Vec::new();
 
     for attr in &input.attrs {
         let is_model_attr = attr.path().is_ident("model") || attr.path().is_ident("rok_orm");
-        if !is_model_attr {
-            continue;
-        }
+        if !is_model_attr { continue; }
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("table") {
-                let value = meta.value()?;
-                let s: LitStr = value.parse()?;
-                custom_table = Some(s.value());
-                Ok(())
+                custom_table = Some(meta.value()?.parse::<LitStr>()?.value()); Ok(())
             } else if meta.path.is_ident("primary_key") {
-                let value = meta.value()?;
-                let s: LitStr = value.parse()?;
-                struct_pk = Some(s.value());
-                Ok(())
+                struct_pk = Some(meta.value()?.parse::<LitStr>()?.value()); Ok(())
             } else if meta.path.is_ident("soft_delete") {
-                soft_delete = true;
-                Ok(())
+                soft_delete = true; Ok(())
             } else if meta.path.is_ident("soft_delete_col") {
-                let value = meta.value()?;
-                let s: LitStr = value.parse()?;
-                soft_delete_col = Some(s.value());
-                soft_delete = true;
-                Ok(())
+                soft_delete_col = Some(meta.value()?.parse::<LitStr>()?.value());
+                soft_delete = true; Ok(())
             } else if meta.path.is_ident("timestamps") {
-                timestamps = true;
-                Ok(())
+                timestamps = true; Ok(())
             } else if meta.path.is_ident("created_at_col") {
-                let value = meta.value()?;
-                let s: LitStr = value.parse()?;
-                created_at_col = Some(s.value());
-                Ok(())
+                created_at_col = Some(meta.value()?.parse::<LitStr>()?.value()); Ok(())
             } else if meta.path.is_ident("updated_at_col") {
-                let value = meta.value()?;
-                let s: LitStr = value.parse()?;
-                updated_at_col = Some(s.value());
-                Ok(())
+                updated_at_col = Some(meta.value()?.parse::<LitStr>()?.value()); Ok(())
             } else if meta.path.is_ident("uuid") {
-                uuid_pk = true;
-                Ok(())
+                uuid_pk = true; Ok(())
             } else if meta.path.is_ident("ulid") {
-                ulid_pk = true;
-                Ok(())
+                ulid_pk = true; Ok(())
             } else if meta.path.is_ident("custom_id") {
-                let value = meta.value()?;
-                let s: LitStr = value.parse()?;
-                custom_id_fn = Some(s.value());
-                Ok(())
+                custom_id_fn = Some(meta.value()?.parse::<LitStr>()?.value()); Ok(())
             } else if meta.path.is_ident("connection") {
-                let value = meta.value()?;
-                let s: LitStr = value.parse()?;
-                connection_name = Some(s.value());
-                Ok(())
+                connection_name = Some(meta.value()?.parse::<LitStr>()?.value()); Ok(())
             } else if meta.path.is_ident("touches") {
                 let value = meta.value()?;
-                let content;
-                syn::bracketed!(content in value);
+                let content; syn::bracketed!(content in value);
                 let list = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?;
-                touches_rels.extend(list.into_iter().map(|s| s.value()));
-                Ok(())
+                touches_rels.extend(list.into_iter().map(|s| s.value())); Ok(())
             } else if meta.path.is_ident("fillable") {
                 let value = meta.value()?;
-                let content;
-                syn::bracketed!(content in value);
+                let content; syn::bracketed!(content in value);
                 let list = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?;
-                fillable_cols.extend(list.into_iter().map(|s| s.value()));
-                Ok(())
+                fillable_cols.extend(list.into_iter().map(|s| s.value())); Ok(())
             } else if meta.path.is_ident("guarded") {
                 let value = meta.value()?;
-                let content;
-                syn::bracketed!(content in value);
+                let content; syn::bracketed!(content in value);
                 let list = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?;
-                guarded_cols.extend(list.into_iter().map(|s| s.value()));
-                Ok(())
+                guarded_cols.extend(list.into_iter().map(|s| s.value())); Ok(())
+            } else if meta.path.is_ident("hidden") {
+                let value = meta.value()?;
+                let content; syn::bracketed!(content in value);
+                let list = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?;
+                hidden_cols.extend(list.into_iter().map(|s| s.value())); Ok(())
+            } else if meta.path.is_ident("visible") {
+                let value = meta.value()?;
+                let content; syn::bracketed!(content in value);
+                let list = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?;
+                visible_cols.extend(list.into_iter().map(|s| s.value())); Ok(())
+            } else if meta.path.is_ident("appends") {
+                let value = meta.value()?;
+                let content; syn::bracketed!(content in value);
+                let list = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?;
+                appends_fields.extend(list.into_iter().map(|s| s.value())); Ok(())
             } else {
                 Err(meta.error("unknown model struct attribute"))
             }
@@ -109,35 +101,32 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
     let table =
         custom_table.unwrap_or_else(|| format!("{}s", struct_name.to_string().to_snake_case()));
 
+    // ── Field parsing ─────────────────────────────────────────────────────────
     let fields = match &input.data {
         Data::Struct(s) => match &s.fields {
             Fields::Named(f) => &f.named,
-            _ => return Err(syn::Error::new(
-                Span::call_site(),
-                "#[derive(Model)] only supports structs with named fields",
-            )),
+            _ => return Err(syn::Error::new(Span::call_site(),
+                "#[derive(Model)] only supports structs with named fields")),
         },
-        _ => return Err(syn::Error::new(
-            Span::call_site(),
-            "#[derive(Model)] only supports structs",
-        )),
+        _ => return Err(syn::Error::new(Span::call_site(),
+            "#[derive(Model)] only supports structs")),
     };
 
     let mut column_names: Vec<String> = Vec::new();
     let mut field_pk: Option<String> = None;
-    // All non-skipped (field_ident, col_name) pairs; PK excluded after loop
-    let mut all_field_pairs: Vec<(proc_macro2::Ident, String)> = Vec::new();
     let mut pk_field_ident: Option<proc_macro2::Ident> = None;
+    let mut regular_pairs: Vec<(proc_macro2::Ident, String)> = Vec::new();
+    let mut cast_fields: Vec<CastFieldInfo> = Vec::new();
+    let mut accessor_fields: Vec<(proc_macro2::Ident, String)> = Vec::new();
 
     for field in fields.iter() {
-        let raw_ident = match &field.ident {
-            Some(id) => id,
-            None => continue,
-        };
-        let field_ident = raw_ident.to_string();
+        let raw_ident = match &field.ident { Some(id) => id, None => continue };
+        let field_name = raw_ident.to_string();
         let mut skip = false;
         let mut col_override: Option<String> = None;
         let mut is_pk = false;
+        let mut cast_kind: Option<crate::expand_model_cast::CastKind> = None;
+        let mut is_accessor = false;
 
         for attr in &field.attrs {
             let is_model_attr = attr.path().is_ident("model") || attr.path().is_ident("rok_orm");
@@ -145,13 +134,14 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("skip") { skip = true; Ok(()) }
                 else if meta.path.is_ident("primary_key") { is_pk = true; Ok(()) }
+                else if meta.path.is_ident("accessor") { is_accessor = true; Ok(()) }
                 else if meta.path.is_ident("column") {
-                    let value = meta.value()?;
-                    let s: LitStr = value.parse()?;
-                    col_override = Some(s.value());
+                    col_override = Some(meta.value()?.parse::<LitStr>()?.value()); Ok(())
+                } else if meta.path.is_ident("cast") {
+                    let s = meta.value()?.parse::<LitStr>()?.value();
+                    cast_kind = crate::expand_model_cast::CastKind::from_str(&s);
                     Ok(())
                 } else {
-                    // Relation attrs (has_many, has_one, etc.) mark the field as skip
                     let is_relation = ["has_many", "has_one", "belongs_to",
                         "has_many_through", "has_one_through", "belongs_to_many",
                         "many_to_many", "morph_one", "morph_many", "morph_to",
@@ -164,33 +154,39 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
             })?;
         }
 
-        let col_name = col_override.unwrap_or(field_ident);
+        let col_name = col_override.unwrap_or(field_name);
         if is_pk {
             field_pk = Some(col_name.clone());
             pk_field_ident = Some(raw_ident.clone());
         }
         if !skip {
             column_names.push(col_name.clone());
-            all_field_pairs.push((raw_ident.clone(), col_name));
+            match cast_kind {
+                Some(ck) => cast_fields.push(CastFieldInfo {
+                    ident: raw_ident.clone(), col: col_name.clone(), cast: ck,
+                }),
+                None => regular_pairs.push((raw_ident.clone(), col_name.clone())),
+            }
+            if is_accessor {
+                accessor_fields.push((raw_ident.clone(), col_name));
+            }
         }
     }
 
     let pk = field_pk.or_else(|| struct_pk.clone()).unwrap_or_else(|| "id".to_string());
-    // Filter out the PK column from to_fields output
-    let non_pk_pairs: Vec<(proc_macro2::Ident, String)> = all_field_pairs
-        .into_iter().filter(|(_, c)| *c != pk).collect();
-    let (non_pk_idents, non_pk_cols): (Vec<_>, Vec<_>) = non_pk_pairs.into_iter().unzip();
+
+    // Remove PK from regular_pairs and cast_fields
+    regular_pairs.retain(|(_, c)| *c != pk);
+    cast_fields.retain(|cf| cf.col != pk);
+
+    // ── Codegen ───────────────────────────────────────────────────────────────
     let columns_len = column_names.len();
 
     let sd_col = soft_delete_col.as_deref().unwrap_or("deleted_at");
     let soft_delete_impl = if soft_delete {
-        quote! {
-            fn soft_delete_column() -> Option<&'static str> { Some(#sd_col) }
-        }
+        quote! { fn soft_delete_column() -> Option<&'static str> { Some(#sd_col) } }
     } else {
-        quote! {
-            fn soft_delete_column() -> Option<&'static str> { None }
-        }
+        quote! { fn soft_delete_column() -> Option<&'static str> { None } }
     };
 
     let ca_col = created_at_col.as_deref().unwrap_or("created_at");
@@ -236,13 +232,9 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
         }
     } else { quote! {} };
 
-    let connection_impl = if let Some(ref conn) = connection_name {
-        quote! {
-            fn connection() -> &'static str { #conn }
-        }
-    } else {
-        quote! {}
-    };
+    let connection_impl = connection_name.as_ref().map_or(quote!{}, |conn| {
+        quote! { fn connection() -> &'static str { #conn } }
+    });
 
     let touches_len = touches_rels.len();
     let touches_impl = if touches_len > 0 {
@@ -252,13 +244,10 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                 &RELS
             }
         }
-    } else {
-        quote! {}
-    };
+    } else { quote! {} };
 
     let fillable_len = fillable_cols.len();
-    let guarded_len = guarded_cols.len();
-
+    let guarded_len  = guarded_cols.len();
     let fillable_impl = if fillable_len > 0 {
         quote! {
             fn fillable() -> &'static [&'static str] {
@@ -266,10 +255,7 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                 &COLS
             }
         }
-    } else {
-        quote! {}
-    };
-
+    } else { quote! {} };
     let guarded_impl = if guarded_len > 0 {
         quote! {
             fn guarded() -> &'static [&'static str] {
@@ -277,37 +263,28 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
                 &COLS
             }
         }
-    } else {
-        quote! {}
-    };
+    } else { quote! {} };
 
-    let to_fields_impl = quote! {
-        fn to_fields(&self) -> Vec<(&'static str, ::rok_orm::SqlValue)> {
-            vec![ #( (#non_pk_cols, ::rok_orm::SqlValue::from(self.#non_pk_idents.clone())), )* ]
-        }
-    };
+    // Phase 11 codegen
+    let to_fields_impl  = gen_to_fields(&regular_pairs, &cast_fields);
+    let post_process_impl = gen_post_process(&cast_fields);
+    let serial_trait_impls = gen_hidden_visible_appends(&hidden_cols, &visible_cols, &appends_fields);
+    let serialize_impl  = gen_serialize_methods(
+        struct_name, &impl_generics, &ty_generics, where_clause, &appends_fields,
+    );
+    let accessor_impl   = gen_accessors(
+        struct_name, &impl_generics, &ty_generics, where_clause, &accessor_fields,
+    );
 
-    // Generate pk_reset() as an inherent method — resets only the PK field.
-    // Users call: let mut copy = model.clone(); copy.pk_reset(); to replicate.
-    let replicate_impl = quote! {}; // default Model::replicate (self.clone()) is fine
-    let replicate_inherent = if let Some(ref pk_ident) = pk_field_ident {
+    let replicate_inherent = pk_field_ident.as_ref().map_or(quote!{}, |pk_ident| {
         quote! {
             impl #impl_generics #struct_name #ty_generics #where_clause {
-                /// Reset the primary key field to its `Default` value in-place.
-                ///
-                /// Use with `.clone()` to create an unsaved copy:
-                /// ```ignore
-                /// let mut copy = original.clone();
-                /// copy.pk_reset();
-                /// ```
                 pub fn pk_reset(&mut self) {
                     self.#pk_ident = Default::default();
                 }
             }
         }
-    } else {
-        quote! {}
-    };
+    });
 
     let expanded = quote! {
         impl #impl_generics ::rok_orm::Model for #struct_name #ty_generics #where_clause {
@@ -325,9 +302,12 @@ pub fn derive_model(input: DeriveInput) -> syn::Result<TokenStream> {
             #fillable_impl
             #guarded_impl
             #to_fields_impl
-            #replicate_impl
+            #post_process_impl
+            #serial_trait_impls
         }
         #replicate_inherent
+        #serialize_impl
+        #accessor_impl
     };
 
     Ok(expanded.into())

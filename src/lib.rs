@@ -94,6 +94,14 @@ pub use logging::{Logger, LogLevel, LogEntry, QueryTimer};
 pub mod hooks;
 pub use hooks::{HookError, HookType, ModelHooks, HookExecutor};
 
+// ── Phase 11: Casting & Serialization ────────────────────────────────────────
+
+pub mod casting;
+pub use casting::{Encryptor, set_encryptor, encrypt, decrypt};
+
+pub mod serialization;
+pub use serialization::SerializeOverride;
+
 pub mod schema;
 pub use schema::{Schema, Blueprint, ColumnType, ColumnDef, SchemaDialect, ForeignAction};
 pub use schema::generator::ModelGenerator;
