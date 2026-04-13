@@ -1,6 +1,6 @@
 //! Unit tests for [`QueryBuilder`] — basic SELECT, WHERE, INSERT, UPDATE, DELETE.
 
-use crate::query::{Dialect, QueryBuilder, SqlValue};
+use crate::query::{QueryBuilder, SqlValue};
 
 #[test]
 fn simple_select() {

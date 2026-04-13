@@ -1,92 +1,11 @@
 //! SELECT / COUNT / DELETE / UPDATE SQL generation for [`QueryBuilder`].
+//!
+//! Aggregate shortcuts (sum_sql, avg_sql, etc.) live in `aggregates.rs`.
 
 use super::builder::{Dialect, Join, QueryBuilder, SoftDeleteMode};
 use super::condition::{Condition, JoinOp, OrderDir, SqlValue};
 
 impl<T> QueryBuilder<T> {
-    // ── aggregation shortcuts ───────────────────────────────────────────────
-
-    pub fn count_sql(&self) -> (String, Vec<SqlValue>) {
-        self.to_count_sql()
-    }
-
-    pub fn aggregate_sql(&self, func: &str, column: &str) -> (String, Vec<SqlValue>) {
-        self.aggregate_sql_with_dialect(Dialect::Postgres, func, column)
-    }
-
-    pub fn aggregate_sql_with_dialect(
-        &self,
-        dialect: Dialect,
-        func: &str,
-        column: &str,
-    ) -> (String, Vec<SqlValue>) {
-        let mut params: Vec<SqlValue> = Vec::new();
-        let joins = self.build_joins();
-        let where_clause = self.build_where_with_soft_delete(dialect, &mut params);
-        let group_by = self.build_group_by();
-        let order = self.build_order();
-        let sql = format!(
-            "SELECT {}({}) FROM {}{}{}{}{}",
-            func, column, self.table, joins, where_clause, group_by, order
-        );
-        (sql, params)
-    }
-
-    pub fn sum_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
-        self.aggregate_sql("SUM", column)
-    }
-
-    pub fn avg_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
-        self.aggregate_sql("AVG", column)
-    }
-
-    pub fn min_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
-        self.aggregate_sql("MIN", column)
-    }
-
-    pub fn max_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
-        self.aggregate_sql("MAX", column)
-    }
-
-    pub fn exists_sql(&self) -> (String, Vec<SqlValue>) {
-        self.exists_sql_with_dialect(Dialect::Postgres)
-    }
-
-    pub fn exists_sql_with_dialect(&self, dialect: Dialect) -> (String, Vec<SqlValue>) {
-        let mut params: Vec<SqlValue> = Vec::new();
-        let where_clause = self.build_where_with_soft_delete(dialect, &mut params);
-        let joins = self.build_joins();
-        let sql = format!(
-            "SELECT EXISTS(SELECT 1 FROM {}{}{})",
-            self.table, joins, where_clause
-        );
-        (sql, params)
-    }
-
-    pub fn pluck_sql(&self, column: &str) -> (String, Vec<SqlValue>) {
-        self.pluck_sql_with_dialect(Dialect::Postgres, column)
-    }
-
-    pub fn pluck_sql_with_dialect(
-        &self,
-        dialect: Dialect,
-        column: &str,
-    ) -> (String, Vec<SqlValue>) {
-        let mut params: Vec<SqlValue> = Vec::new();
-        let where_clause = self.build_where_with_soft_delete(dialect, &mut params);
-        let joins = self.build_joins();
-        let order = self.build_order();
-        let limit = self
-            .limit_val
-            .map(|n| format!(" LIMIT {n}"))
-            .unwrap_or_default();
-        let sql = format!(
-            "SELECT {} FROM {}{}{}{}{}",
-            column, self.table, joins, where_clause, order, limit
-        );
-        (sql, params)
-    }
-
     // ── SELECT ──────────────────────────────────────────────────────────────
 
     /// Build a parameterized `SELECT` statement (PostgreSQL `$N` placeholders).
@@ -96,14 +15,33 @@ impl<T> QueryBuilder<T> {
 
     /// Build a parameterized `SELECT` statement for the given [`Dialect`].
     pub fn to_sql_with_dialect(&self, dialect: Dialect) -> (String, Vec<SqlValue>) {
+        // 10.4: having_rank wraps the inner query in an outer subquery.
+        if let Some((alias, n)) = &self.having_rank_n {
+            let mut inner = self.clone();
+            inner.having_rank_n = None;
+            inner.limit_val = None;
+            inner.offset_val = None;
+            let (inner_sql, inner_params) = inner.to_sql_with_dialect(dialect);
+            return (
+                format!("SELECT * FROM ({inner_sql}) AS __ranked WHERE {alias} = {n}"),
+                inner_params,
+            );
+        }
+
         let cols = self
             .select_cols
             .as_ref()
             .map(|c| c.join(", "))
             .unwrap_or_else(|| "*".into());
         let distinct_kw = if self.distinct { "DISTINCT " } else { "" };
-        let mut sql = format!("SELECT {distinct_kw}{cols} FROM {}", self.table);
-        let mut params: Vec<SqlValue> = Vec::new();
+
+        // 10.3: from_override replaces the table name (from_cte / from_subquery).
+        let from = self.from_override.as_deref().unwrap_or(&self.table);
+        let mut sql = format!("SELECT {distinct_kw}{cols} FROM {from}");
+
+        // 10.3: Pre-populate params with CTE / from_subquery params so outer
+        // WHERE params get the correct $N offsets automatically.
+        let mut params: Vec<SqlValue> = self.cte_params.clone();
 
         sql.push_str(&self.build_joins());
         sql.push_str(&self.build_where_with_soft_delete(dialect, &mut params));
@@ -116,6 +54,17 @@ impl<T> QueryBuilder<T> {
         if let Some(n) = self.offset_val {
             sql.push_str(&format!(" OFFSET {n}"));
         }
+
+        // 10.3: Prepend WITH clause for CTEs.
+        if !self.ctes.is_empty() {
+            let cte_clauses: Vec<String> = self
+                .ctes
+                .iter()
+                .map(|(name, inner_sql)| format!("{name} AS ({inner_sql})"))
+                .collect();
+            sql = format!("WITH {} {sql}", cte_clauses.join(", "));
+        }
+
         (sql, params)
     }
 

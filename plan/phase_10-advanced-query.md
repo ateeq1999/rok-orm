@@ -1,7 +1,7 @@
 # Phase 10: Advanced Query Features
 
 > **Target version:** v0.5.0
-> **Status:** 🔜 Planned
+> **Status:** ✅ Complete
 > **Note:** 10.4 (Window Functions) depends on 8.2 (select_raw) from Phase 8
 
 ---
@@ -48,12 +48,12 @@ let users = User::query()
 
 ### Tasks
 
-- [ ] Add `where_json_contains(col, key, val)` to `QueryBuilder`
-- [ ] Add `where_json_path(col, path, val)` to `QueryBuilder`
-- [ ] Add `select_json_field(col, key, alias)` to `QueryBuilder`
-- [ ] Add `where_json_array_contains(col, val)` to `QueryBuilder`
-- [ ] Dialect detection in SQL generation (read `QueryBuilder.dialect`)
-- [ ] Tests: all methods on PG + SQLite, verify generated SQL per dialect
+- [x] Add `where_json_contains(col, key, val)` to `QueryBuilder`
+- [x] Add `where_json_path(col, path, val)` to `QueryBuilder`
+- [x] Add `select_json_field(col, key, alias)` to `QueryBuilder`
+- [x] Add `where_json_array_contains(col, val)` to `QueryBuilder`
+- [x] Dialect detection in SQL generation (read `QueryBuilder.dialect`)
+- [x] Tests: all methods on PG + SQLite, verify generated SQL per dialect
 
 ---
 
@@ -102,12 +102,12 @@ WHERE posts_fts MATCH 'rust async orm'
 
 ### Tasks
 
-- [ ] Add `where_full_text(cols, query)` — PostgreSQL `tsvector @@`
-- [ ] Add `order_by_text_rank(cols, query)` — PostgreSQL `ts_rank` ORDER BY
-- [ ] Add `where_match(cols, query)` — MySQL `MATCH ... AGAINST`
-- [ ] Add `where_fts5(fts_table, query)` — SQLite FTS5 MATCH
-- [ ] Parse `query` string into appropriate form (split on spaces → `word1 & word2`)
-- [ ] Tests: PG full-text, MySQL MATCH, SQLite FTS5
+- [x] Add `where_full_text(cols, query)` — PostgreSQL `tsvector @@`
+- [x] Add `order_by_text_rank(cols, query)` — PostgreSQL `ts_rank` ORDER BY
+- [x] Add `where_match(cols, query)` — MySQL `MATCH ... AGAINST`
+- [x] Add `where_fts5(fts_table, query)` — SQLite FTS5 MATCH
+- [x] Parse `query` string into appropriate form (split on spaces → `word1 & word2`)
+- [x] Tests: PG full-text, MySQL MATCH, SQLite FTS5
 
 ---
 
@@ -159,15 +159,15 @@ let result = User::query()
 
 ### Tasks
 
-- [ ] Add `SubQueryBuilder` — a variant of `QueryBuilder` that generates `SELECT ... FROM ... WHERE ...` without the outer statement
-- [ ] Add `where_in_subquery(col, closure)` — `WHERE col IN (SELECT ...)`
-- [ ] Add `where_exists(closure)` — `WHERE EXISTS (SELECT 1 FROM ... WHERE ...)`
-- [ ] Add `where_not_exists(closure)` — `WHERE NOT EXISTS (...)`
-- [ ] Add `with_cte(name, closure)` — prepends `WITH name AS (SELECT ...)` to the query
-- [ ] Add `from_cte(name)` — sets FROM to the named CTE
-- [ ] Add `from_subquery(alias, closure)` — sets FROM to `(SELECT ...) AS alias`
-- [ ] Placeholder numbering: subquery params are offset by outer param count
-- [ ] Tests: where_in_subquery, where_exists, CTE, nested subquery
+- [x] Add `SubQueryBuilder` — a variant of `QueryBuilder` that generates `SELECT ... FROM ... WHERE ...` without the outer statement
+- [x] Add `where_in_subquery(col, closure)` — `WHERE col IN (SELECT ...)`
+- [x] Add `where_exists(closure)` — `WHERE EXISTS (SELECT 1 FROM ... WHERE ...)`
+- [x] Add `where_not_exists(closure)` — `WHERE NOT EXISTS (...)`
+- [x] Add `with_cte(name, closure)` — prepends `WITH name AS (SELECT ...)` to the query
+- [x] Add `from_cte(name)` — sets FROM to the named CTE
+- [x] Add `from_subquery(alias, closure)` — sets FROM to `(SELECT ...) AS alias`
+- [x] Placeholder numbering: subquery params are offset by outer param count
+- [x] Tests: where_in_subquery, where_exists, CTE, nested subquery
 
 ---
 
@@ -194,18 +194,18 @@ let posts = Post::query()
 
 ### Tasks
 
-- [ ] `select_raw()` and `from_subquery()` already tracked (8.2, 10.3) — window functions build on them
-- [ ] Add `window_rank_by(partition_col, order_col, alias)` — generates `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...) AS alias` in SELECT
-- [ ] Add `having_rank(n)` — wraps in outer subquery with `WHERE alias = n`
-- [ ] Tests: row_number, partition by, rank filter
+- [x] `select_raw()` and `from_subquery()` already tracked (8.2, 10.3) — window functions build on them
+- [x] Add `window_rank_by(partition_col, order_col, alias)` — generates `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...) AS alias` in SELECT
+- [x] Add `having_rank(n)` — wraps in outer subquery with `WHERE alias = n`
+- [x] Tests: row_number, partition by, rank filter
 
 ---
 
 ## Acceptance Criteria for Phase 10
 
-- [ ] All 4 sub-sections implemented
-- [ ] JSON queries tested per dialect
-- [ ] Full-text tested on PG, MySQL, SQLite
-- [ ] Subqueries and CTEs tested with complex nesting
-- [ ] `cargo clippy -- -D warnings` clean
-- [ ] Phase file tasks all checked off
+- [x] All 4 sub-sections implemented
+- [x] JSON queries tested per dialect
+- [x] Full-text tested on PG, MySQL, SQLite
+- [x] Subqueries and CTEs tested with complex nesting
+- [x] `cargo clippy -- -D warnings` clean
+- [x] Phase file tasks all checked off

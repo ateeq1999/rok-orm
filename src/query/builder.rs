@@ -65,6 +65,19 @@ pub struct QueryBuilder<T> {
     pub(super) eager_loads: Vec<String>,
     pub(crate) excluded_scope_ids: Vec<std::any::TypeId>,
     pub(super) _marker: PhantomData<T>,
+    // ── Phase 10 fields ───────────────────────────────────────────────────────
+    /// SQL dialect; drives JSON / FTS SQL generation at builder call time.
+    pub(super) dialect: Dialect,
+    /// `WITH name AS (sql)` CTEs prepended to the final SELECT.
+    pub(super) ctes: Vec<(String, String)>,
+    /// Params sourced from CTEs / from_subquery (prepended before WHERE params).
+    pub(super) cte_params: Vec<SqlValue>,
+    /// Override the FROM target (used by `from_cte` / `from_subquery`).
+    pub(super) from_override: Option<String>,
+    /// Set by `window_rank_by`; read by `having_rank`.
+    pub(super) window_rank_alias: Option<String>,
+    /// Wraps the query in `SELECT * FROM (...) AS __ranked WHERE alias = n`.
+    pub(super) having_rank_n: Option<(String, i64)>,
 }
 
 impl<T> Clone for QueryBuilder<T> {
@@ -86,6 +99,12 @@ impl<T> Clone for QueryBuilder<T> {
             eager_loads: self.eager_loads.clone(),
             excluded_scope_ids: self.excluded_scope_ids.clone(),
             _marker: PhantomData,
+            dialect: self.dialect,
+            ctes: self.ctes.clone(),
+            cte_params: self.cte_params.clone(),
+            from_override: self.from_override.clone(),
+            window_rank_alias: self.window_rank_alias.clone(),
+            having_rank_n: self.having_rank_n.clone(),
         }
     }
 }
@@ -109,7 +128,19 @@ impl<T> QueryBuilder<T> {
             eager_loads: Vec::new(),
             excluded_scope_ids: Vec::new(),
             _marker: PhantomData,
+            dialect: Dialect::Postgres,
+            ctes: Vec::new(),
+            cte_params: Vec::new(),
+            from_override: None,
+            window_rank_alias: None,
+            having_rank_n: None,
         }
+    }
+
+    /// Set the SQL dialect for this query (drives JSON/FTS SQL generation).
+    pub fn with_dialect(mut self, d: Dialect) -> Self {
+        self.dialect = d;
+        self
     }
 
     pub fn with_soft_delete(mut self, column: impl Into<String>) -> Self {
@@ -243,56 +274,4 @@ impl<T> QueryBuilder<T> {
         self
     }
 
-    // ── fluent executor methods ────────────────────────────────────────────────
-
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "postgres")] {
-            /// Execute the query and return all matching rows.
-            pub async fn get(self, pool: &sqlx::PgPool) -> Result<Vec<T>, sqlx::Error>
-            where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
-            {
-                crate::executor::postgres::fetch_all(pool, self).await
-            }
-
-            /// Execute the query and return the first matching row, if any.
-            pub async fn first(self, pool: &sqlx::PgPool) -> Result<Option<T>, sqlx::Error>
-            where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
-            {
-                crate::executor::postgres::fetch_optional(pool, self).await
-            }
-
-            /// Execute the query and return the count of matching rows.
-            pub async fn count(self, pool: &sqlx::PgPool) -> Result<i64, sqlx::Error>
-            where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
-            {
-                crate::executor::postgres::count(pool, self).await
-            }
-
-            /// Execute the query and return all matching rows as a Vec of optional rows.
-            pub async fn get_optional(self, pool: &sqlx::PgPool) -> Result<Vec<T>, sqlx::Error>
-            where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
-            {
-                crate::executor::postgres::fetch_all(pool, self).await
-            }
-
-            /// Execute the query with pagination and return a paginated result.
-            pub async fn execute_paginated(
-                self,
-                pool: &sqlx::PgPool,
-                page: i64,
-                per_page: i64,
-            ) -> Result<crate::pagination::Page<T>, sqlx::Error>
-            where
-                T: crate::Model + for<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> + Send + Unpin,
-            {
-                let total = crate::executor::postgres::count(pool, self.clone()).await?;
-                let data = crate::executor::postgres::fetch_all(pool, self.paginate(page, per_page)).await?;
-                Ok(crate::pagination::Page::new(data, total, per_page, page))
-            }
-        }
-    }
 }

@@ -39,6 +39,7 @@
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "postgres")]
 use crate::errors::{OrmError, OrmResult};
 
 // ── Migration trait ───────────────────────────────────────────────────────────

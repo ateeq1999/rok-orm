@@ -1,18 +1,27 @@
 pub mod condition;
+mod aggregates;
 mod builder;
 mod conditions;
+mod cte;
 mod ergonomics;
+mod executor_glue;
+mod fts;
+mod json;
 mod sql_gen;
 mod sql_write;
 mod subquery;
+mod window;
 mod with_agg;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_advanced;
+#[cfg(test)]
+mod tests_phase10;
 
 pub use builder::{Dialect, Join, QueryBuilder, SoftDeleteMode};
 pub use condition::{Condition, JoinOp, OrderDir, SqlValue};
+pub use cte::SubQueryBuilder;
 pub use subquery::CountOp;
 
 // ── shared WHERE-clause helpers ─────────────────────────────────────────────
