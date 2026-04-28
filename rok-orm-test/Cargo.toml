@@ -1,0 +1,46 @@
+[package]
+name = "rok-orm-test"
+version = "0.6.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["rok-orm contributors"]
+repository = "https://github.com/rok-rs/rok-orm"
+description = "Testing utilities for rok-orm: factories, transaction-per-test, and assertion helpers"
+keywords = ["orm", "testing", "database", "factory"]
+categories = ["development-tools::testing"]
+
+[dependencies]
+rok-orm = { path = "..", default-features = false }
+rok-orm-test-macros = { path = "../rok-orm-test-macros" }
+sqlx = { version = "0.8", default-features = false, optional = true }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+thiserror = "1.0"
+fake = { version = "2", optional = true }
+
+[features]
+default = []
+fake = ["dep:fake"]
+postgres = [
+    "rok-orm/postgres",
+    "dep:sqlx",
+    "sqlx/postgres",
+    "sqlx/runtime-tokio-native-tls",
+]
+sqlite = [
+    "rok-orm/sqlite",
+    "dep:sqlx",
+    "sqlx/sqlite",
+    "sqlx/runtime-tokio-native-tls",
+]
+mysql = [
+    "rok-orm/mysql",
+    "dep:sqlx",
+    "sqlx/mysql",
+    "sqlx/runtime-tokio-native-tls",
+]
+
+[dev-dependencies]
+
+[package.metadata.docs.rs]
+all-features = true

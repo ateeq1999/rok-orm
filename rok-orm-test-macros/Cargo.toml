@@ -1,0 +1,17 @@
+[package]
+name = "rok-orm-test-macros"
+version = "0.6.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["rok-orm contributors"]
+repository = "https://github.com/ateeq1999/rok-orm"
+description = "Procedural macros for rok-orm-test"
+autolib = false
+
+[lib]
+crate-type = ["proc-macro"]
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }

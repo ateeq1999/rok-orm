@@ -1,11 +1,15 @@
+[workspace]
+members = [".", "proc-macro", "rok-orm-test", "rok-orm-test-macros"]
+resolver = "2"
+
 [package]
 name = "rok-orm"
 version = "0.4.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["rok-orm contributors"]
-repository = "https://github.com/rok-rs/rok-orm"
-homepage = "https://github.com/rok-rs/rok-orm"
+repository = "https://github.com/ateeq1999/rok-orm"
+homepage = "https://github.com/ateeq1999/rok-orm"
 description = "Eloquent-inspired async ORM for Rust"
 keywords = ["orm", "database", "async", "rust", "eloquent"]
 categories = ["database"]
@@ -16,7 +20,10 @@ crate-type = ["lib"]
 
 [dependencies]
 rok-orm-macros = { path = "proc-macro" }
-sqlx = { version = "0.8", default-features = false, features = ["macros", "chrono"], optional = true }
+sqlx = { version = "0.8", default-features = false, features = [
+    "macros",
+    "chrono",
+], optional = true }
 futures-core = { version = "0.3", optional = true }
 tokio = { version = "1.0", features = ["full"] }
 thiserror = "1.0"
@@ -33,9 +40,19 @@ heck = "0.5"
 
 [features]
 default = []
-postgres = ["dep:sqlx", "sqlx/postgres", "sqlx/runtime-tokio-native-tls", "dep:futures-core"]
+postgres = [
+    "dep:sqlx",
+    "sqlx/postgres",
+    "sqlx/runtime-tokio-native-tls",
+    "dep:futures-core",
+]
 sqlite = ["dep:sqlx", "sqlx/sqlite", "sqlx/runtime-tokio-native-tls"]
-mysql = ["dep:sqlx", "sqlx/mysql", "sqlx/runtime-tokio-native-tls", "sqlx/macros"]
+mysql = [
+    "dep:sqlx",
+    "sqlx/mysql",
+    "sqlx/runtime-tokio-native-tls",
+    "sqlx/macros",
+]
 runtime-tokio-native-tls = ["sqlx/runtime-tokio-native-tls"]
 uuid-pk = ["dep:uuid"]
 ulid-pk = ["dep:ulid"]
